@@ -6,11 +6,9 @@ void start_peripherals();
 
 void setup() {
 	NVIC_DisableIRQ(SysTick_IRQn);
-	//delayMicros(1500000);
+	delayMicros(1000000);
 	start_peripherals();
-	volatile int test = 0;
-	++test;
-	//delayMicros(1000);
+	delayMicros(1000);
 	gbc();
 }
 
