@@ -90,10 +90,10 @@ hram: .space 127,0
 ier: .byte 0
 .align 4
 mem_map: 
-vram0: .space 0x2000
-vram1: .space 0x2000 @this area is usually extram
 wram0: .space 0x1000
-wram1: .space 0x1000 @usually swappable bank
+vram0: .space 0x2000
+vram1: .space 0x2000 
+wram1: .space 0x1000 
 extram: .word =0x61000000
 vramn: .word vram0
 wramn: .word wram1
@@ -117,6 +117,7 @@ cpu_regs_addr: .space 20
 .text
 .align 4
 wrambanks:
+	.word wram0
 	.word wram1
 	.word wram2
 	.word wram3
@@ -124,6 +125,9 @@ wrambanks:
 	.word wram5
 	.word wram6
 	.word wram7
+vrambanks:
+	.word vram0
+	.word vram1
 x_lbl:
     .word x00+1
     .word x01+1
@@ -396,16 +400,14 @@ x_lbl:
 @Half-Carry flag:
 https://robdor.com/2016/08/10/gameboy-emulator-half-carry-flag/
 
-@Important to-do:
-@Use cbz and cbnz
-
 .global gbc
 
 .align 4
 gbc:
+	bkpt 11
 	mov sc0,0							@r0 - working reg
 	ldr progc,=0x60000100				@r1 - pc
-	ldr stackptr,=mem_map				@r2 - stack pointer
+	ldr stackptr,=wram0					@r2 - stack pointer
 	ldr cpuregs,=cpu_regs_addr			@r3 - cpu registers address
 	mov args,0							@r4 - holds the arguments for opcodes, if they have any
 	mov sc1,0							@r5 - working reg
@@ -429,7 +431,7 @@ gbc:
 	strb r8,[r0,0x40]
 	mov r8,0x81
 	strb r8,[r0,0x41]
-	
+	bkpt 12
 	get_op
 
 x00: @NOP
@@ -626,9 +628,9 @@ x30: @JR NC,r8
 
 	 
 x31: @LD sp,d16 - load immediate into stack pointer
-	@Im assuming the stack is in WRAM0 or WRAMn
+	@This needs a mem catch - I cant really assume the stack is going to be in WRAM0
 	get_2_arg
-	sub args,0xc000
+	sub args,0xc000 @need to subtract c000 because GBC I need the offset into wram
 	cmp args,0x1000
 	it mi
 	addmi stackptr,sc0,cartaddr
