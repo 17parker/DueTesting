@@ -3,31 +3,19 @@
 extern "C" void gbc(void);
 void start_peripherals();
 
-//PIN D7 has a bad connecttion (on PC9)
-/*
-//I am pretty sure I can replace setup() and loop() with this, so I can jump to main to restart the program while debugging
-int main(void) {
-	SystemInit();
+extern "C" {
+	int main(void) {
+		SystemInit();
+		NVIC_DisableIRQ(SysTick_IRQn);
+		//delayMicros(1000000);
+		start_peripherals();
+		delayMicros(1000);
+		gbc();
 
-	//rest of the code in setup()
+		while (1) {
 
-	while(1){
-
+		}
 	}
-}
-*/
-
-void setup() {
-	NVIC_DisableIRQ(SysTick_IRQn);
-	delayMicros(1000000);
-	start_peripherals();
-	delayMicros(1000);
-	gbc();
-}
-
-
-void loop() {
-
 }
 
 

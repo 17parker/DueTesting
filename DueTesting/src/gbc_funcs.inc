@@ -65,35 +65,35 @@ sc4 .req r12
 .endm
 
 .macro set_nflag
-	orr cpuregs,nflag_set
+	orr cpuflags,nflag_set
 .endm
 
 .macro set_hflag
-	orr cpuregs,hflag_set
+	orr cpuflags,hflag_set
 .endm
 
 .macro set_cflag
-	orr cpuregs,cflag_set
+	orr cpuflags,cflag_set
 .endm
 
 .macro set_zflag
-	orr cpuregs,zflag_set
+	orr cpuflags,zflag_set
 .endm
 
 .macro clear_nflag
-	and cpuregs,nflag_clear
+	and cpuflags,nflag_clear
 .endm
 
 .macro clear_hflag
-	and cpuregs,hflag_clear
+	and cpuflags,hflag_clear
 .endm
 
 .macro clear_cflag
-	and cpuregs,cflag_clear
+	and cpuflags,cflag_clear
 .endm
 
 .macro clear_zflag
-	and cpuregs,zflag_clear
+	and cpuflags,zflag_clear
 .endm
 
 @@@@@@@@@@@@@NOTES@@@@@@@@@@@@@@
@@ -107,8 +107,8 @@ sc4 .req r12
 
 .macro set_h_eq
 	ite eq
-	orreq cpuregs,hflag_set
-	andne cpuregs,hflag_clear
+	orreq cpuflags,hflag_set
+	andne cpuflags,hflag_clear
 .endm
 
 .macro set_c_eq
@@ -118,7 +118,6 @@ sc4 .req r12
 .endm
 
 .macro ld_reg8_d8, dstreg  @dstreg is the destination reg
-	get_1_arg
 	strb args,[cpuregs,\dstreg]
 .endm
 
@@ -128,8 +127,8 @@ sc4 .req r12
 .endm
 
 .macro inc_reg8, rA,rB, regname  @rA,rB are free registers, regname is the register
-	ldrb \rA,[cpuregs,\regname]
-	adds \rB,\rA,1
+	ldrb \rA,[cpuregs,\regname] @rA has previous value of reg
+	add \rB,\rA,1
 	strb \rB,[cpuregs,\regname]
 	cmp \rA,0xf    @h-flag: a carry from bit 3 will only happen if bits 3:0 are 1
 	set_h_eq

@@ -77,7 +77,7 @@ lower\@: @\rA holds the 16-bit address
 .endm
 
 .macro ld_rr_nn cpu_offset,rdata @load into 16-bit register rr the immediate data
-	str \rdata,[cpuregs,\cpu_offset]
+	strh \rdata,[cpuregs,\cpu_offset]
 .endm
 
 
@@ -404,7 +404,6 @@ https://robdor.com/2016/08/10/gameboy-emulator-half-carry-flag/
 
 .align 4
 gbc:
-	bkpt 11
 	mov sc0,0							@r0 - working reg
 	ldr progc,=0x60000100				@r1 - pc
 	ldr stackptr,=wram0					@r2 - stack pointer
@@ -426,17 +425,24 @@ gbc:
 	ldr r0,=wram1
 	str r0,[cpuregs,wramn_reg]
 
+	mov r0,0	@reset the system
+	strh r0,[cpuregs,AF_reg]
+	strh r0,[cpuregs,BC_reg]
+	strh r0,[cpuregs,DE_reg]
+	strh r0,[cpuregs,HL_reg]
 	ldr r0,=io	@To be consistent with the memory viewer
 	mov r8,0x91
 	strb r8,[r0,0x40]
 	mov r8,0x81
 	strb r8,[r0,0x41]
+	mov r8,0x80
+	strb r8,[cpuregs,F_reg]
 	bkpt 12
 	get_op
 
 x00: @NOP
 	get_op
-x01: @LD BC,d16 - no flags
+x01: @LD BC,d16 - no flags TESTED-WORKS
 	get_2_arg
 	ld_rr_nn BC_reg,args
 	get_op
@@ -462,6 +468,7 @@ x05: @DEC B - z if result is 0, N is set, H is set if borrow from bit 4
 	get_op
 
 x06: @LD B,d8
+	get_1_arg
 	ld_reg8_d8 B_reg
 	get_op
 
@@ -501,6 +508,7 @@ x0d: @DEC C
 	get_op
 
 x0e: @LD C,d8 - no flags
+	get_1_arg
 	ld_reg8_d8 C_reg
 	get_op
 
@@ -509,9 +517,9 @@ x0f: @RRCA
 x10: @STOP 0
 	b x10
 
-x11: @LD DE, d16
-	get_2_arg		@args in r4
-	strh args,[cpuregs,2]
+x11: @LD DE, d16 TESTED-WORKS
+	get_2_arg		
+	ld_rr_nn DE_reg,args
 	get_op
  
 x12: @LD (DE),A
@@ -532,6 +540,7 @@ x15: @DEC D
 	get_op
 	 
 x16: @LD D,d8
+	get_1_arg
 	ld_reg8_d8 D_reg
 	get_op
 	 
@@ -556,6 +565,7 @@ x1d: @DEC E
 	get_op
 	 
 x1e: @LD E,d8
+	get_1_arg
 	ld_reg8_d8 E_reg
 	get_op
 	 
@@ -569,10 +579,9 @@ x20: @JR NZ,r8 - jump to (PC + r8) if Zero flag is reset - r8 is SIGNED
 	addne progc,progc,args
 	get_op
 
-x21: @LD HL,d16 - no flags
+x21: @LD HL,d16 - no flags TESTED-WORKS
 	get_2_arg
-	orr args, args, sc0, lsl 8
-	strh args, [cpuregs, 4]
+	ld_rr_nn HL_reg,args
 	get_op
 
 x22: @LD (HL+),A - Same as LD (HL),A - INC HL
@@ -592,6 +601,7 @@ x25: @DEC H
 	get_op
 	 
 x26: @LD H,d8
+	get_1_arg
 	ld_reg8_d8 H_reg
 	get_op
 	 
@@ -619,6 +629,7 @@ x2d: @DEC L
 	get_op
 	 
 x2e: @LD L,d8
+	get_1_arg
 	ld_reg8_d8 L_reg
 	get_op
 	 
@@ -675,7 +686,8 @@ x3d: @DEC A
 	dec_reg8 sc0,sc1,A_reg
 	get_op
 	 
-x3e: @LD A,d8 - No flags affected 
+x3e: @LD A,d8 - No flags affected  TESTED-WORKS
+	get_1_arg
 	ld_reg8_d8 A_reg
 	get_op
 	 
@@ -1195,6 +1207,11 @@ xc9: @RET
 
 	 
 xca: @JP Z,a16
+	get_2_arg
+	tst cpuflags,zflag_set
+	it ne
+	addne progc,args,cartaddr
+	get_op
 
 	 
 xcb: @PREFIX CB
