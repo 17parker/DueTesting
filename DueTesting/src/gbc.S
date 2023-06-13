@@ -515,7 +515,9 @@ x0e: @LD C,d8 - no flags
 x0f: @RRCA
 
 x10: @STOP 0
-	b x10
+	bkpt 99
+stoplbl:
+	b stoplbl
 
 x11: @LD DE, d16 TESTED-WORKS
 	get_2_arg		
@@ -553,7 +555,7 @@ x19: @ADD HL,DE
 x1a: @LD A,(DE)
 	 
 x1b: @DEC DE
-	inc_reg16 sc0,DE_reg
+	dec_reg16 sc0,DE_reg
 	get_op
 	 
 x1c: @INC E
@@ -662,7 +664,7 @@ x35: @DEC (HL)
 x36: @LD (HL),d8
 	get_1_arg
 	ld_ra16_d8 HL_reg,args,sc0,sc1
-	 
+
 x37: @SCF
 	 
 x38: @JR C,r8
@@ -906,27 +908,27 @@ x77: @LD (HL),A
 	ld_ra16_d8 HL_reg,sc0,sc1,sc2
 	 
 x78: @LD A,B
-	ld_reg8_reg8 r0,A_reg,B_reg
+	ld_reg8_reg8 sc0,A_reg,B_reg
 	get_op
 	 
 x79: @LD A,C - no flags
-	ld_reg8_reg8 r0,A_reg,C_reg
+	ld_reg8_reg8 sc0,A_reg,C_reg
 	get_op
 	 
 x7a: @LD A,D
-	ld_reg8_reg8 r0,A_reg,D_reg
+	ld_reg8_reg8 sc0,A_reg,D_reg
 	get_op
 	 
 x7b: @LD A,E
-	ld_reg8_reg8 r0,A_reg,E_reg
+	ld_reg8_reg8 sc0,A_reg,E_reg
 	get_op
 	 
 x7c: @LD A,H
-	ld_reg8_reg8 r0,A_reg,H_reg
+	ld_reg8_reg8 sc0,A_reg,H_reg
 	get_op
 	 
 x7d: @LD A,L
-	ld_reg8_reg8 r0,A_reg,L_reg
+	ld_reg8_reg8 sc0,A_reg,L_reg
 	get_op
 	 
 x7e: @LD A,(HL)
@@ -1025,8 +1027,8 @@ x96: @SUB (HL)
 
 	 
 x97: @SUB A
-	mov r0,0
-	strb r0,[cpuregs,A_reg]
+	mov sc0,0
+	strb sc0,[cpuregs,A_reg]
 	mov cpuregs,0xc0	@Z,N = 1; H,C = 0
 	get_op
 	 
@@ -1057,49 +1059,49 @@ x9d: @SBC A,L
 x9e: @SBC A,(HL)
 	get_op
 	 
-x9f: @SBC A,A
+x9f: @SBC A,A - UNTESTED
 	tst cpuflags,cflag_set
 	ittee eq
 	moveq r0,0xff
-	moveq cpuregs,0x70  @Z=0; H,C,N = 1
+	moveq cpuflags,0x70  @Z=0; H,C,N = 1
 	movne r0,0
-	movne cpuregs,0xc0	@Z,N = 1; H,C = 0
+	movne cpuflags,0xc0	@Z,N = 1; H,C = 0
 	strb r0,[cpuregs,A_reg]
 	get_op
 	 
 xa0: @AND B
-	and_A_reg8 r0,r8,B_reg
+	and_A_reg8 sc0,sc1,B_reg
 	get_op
 	 
 xa1: @AND C
-	and_A_reg8 r0,r8,C_reg
+	and_A_reg8 sc0,sc1,C_reg
 	get_op
 	 
 xa2: @AND D
-	and_A_reg8 r0,r8,D_reg
+	and_A_reg8 sc0,sc1,D_reg
 	get_op
 	 
 xa3: @AND E
-	and_A_reg8 r0,r8,E_reg
+	and_A_reg8 sc0,sc1,E_reg
 	get_op
 	 
 xa4: @AND H
-	and_A_reg8 r0,r8,H_reg
+	and_A_reg8 sc0,sc1,H_reg
 	get_op
 	 
 xa5: @AND L
-	and_A_reg8 r0,r8,L_reg
+	and_A_reg8 sc0,sc1,L_reg
 	get_op
 	 
 xa6: @AND (HL)
 
 	 
 xa7: @AND A
-	ldrb r0,[cpuregs,A_reg]
-	tst r0,r0
+	ldrb sc0,[cpuregs,A_reg]
+	tst sc0,sc0
 	ite eq
-	moveq cpuregs,0xa0    @Z,H = 1; N,C = 0
-	movne cpuregs,0x20	  @H = 1; Z,N,C = 0
+	moveq cpuflags,0xa0    @Z,H = 1; N,C = 0
+	movne cpuflags,0x20	  @H = 1; Z,N,C = 0
 	get_op
 	 
 xa8: @XOR B
@@ -1151,28 +1153,35 @@ xb7: @OR A
 
 	 
 xb8: @CP B
-
+	cp_A_reg8 sc0,sc1,B_reg
+	get_op
 	 
 xb9: @CP C
-
+	cp_A_reg8 sc0,sc1,C_reg
+	get_op
 	 
 xba: @CP D
-
+	cp_A_reg8 sc0,sc1,D_reg
+	get_op
 	 
 xbb: @CP E
-
+	cp_A_reg8 sc0,sc1,E_reg
+	get_op
 	 
 xbc: @CP H
-
+	cp_A_reg8 sc0,sc1,H_reg
+	get_op
 	 
 xbd: @CP L
-
+	cp_A_reg8 sc0,sc1,L_reg
+	get_op
 	 
 xbe: @CP (HL)
 
 	 
-xbf: @CP A
-
+xbf: @CP A - I feel like this is to easy, CP A is always going to be 0
+	mov cpuflags,0xc0
+	get_op
 	 
 xc0: @RET NZ
 
@@ -1181,9 +1190,13 @@ xc1: @POP BC
 
 	 
 xc2: @JP NZ,a16
+	get_2_arg
+	tst cpuflags,zflag_set
+	it eq			@zflag is not set if result of tst is 0
+	addeq progc,args,cartaddr
+	get_op
 
-
-xc3: @JP a16
+xc3: @JP a16 - WORKS
 	get_2_arg
 	add progc,args,cartaddr
 	get_op
@@ -1358,11 +1371,21 @@ xfd:@unused
 
 
 xfe: @CP d8 - compare A with d8 - (A - d8) - Set N, conditionally set Z,H, C is set if A < d8
-	@INCOMPLETE - do not overwrite lower 8 bits of r7
 	get_1_arg
-	ldrb r8,[r3,7]
-	cmp r8,r4
-	orr r7,r7,64 @Set N flag
+	ldrb sc0,[cpuregs,A_reg]
+	mov sc1,args		@moving args to sc1 so args isnt clobbered, for debugging reasons
+	cmp sc0,sc1
+	it eq
+	moveq cpuflags,0xc0
+	it mi				@they are not equal
+	movmi cpuflags,0x50 @negative - N and C flags set
+	it gt
+	movgt cpuflags,0x60	@gt or eq - N set, Z and C flags clear
+	and sc0,0xf
+	and sc1,0xf
+	cmp sc0,sc1
+	it mi
+	orrmi cpuflags,hflag_set
 	get_op
 
-xff:
+xff: @RST 38H

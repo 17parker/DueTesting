@@ -96,7 +96,7 @@ sc4 .req r12
 	and cpuflags,zflag_clear
 .endm
 
-@@@@@@@@@@@@@NOTES@@@@@@@@@@@@@@
+@@@@@@@@@@@@@ NOTES @@@@@@@@@@@@@@
 @Only when a number is added to itself, the hflag can be checked by testing the result with 0x10
 
 .macro set_z_eq
@@ -275,8 +275,8 @@ sc4 .req r12
 	ands \rB,\rA,\rB
 	strb \rB,[cpuregs,A_reg]
 	ite eq
-	moveq cpuregs,0xa0    @Z,H = 1; N,C = 0
-	movne cpuregs,0x20	  @H = 1; Z,N,C = 0
+	moveq cpuflags,0xa0    @Z,H = 1; N,C = 0
+	movne cpuflags,0x20	  @H = 1; Z,N,C = 0
 .endm
 
 .macro add_hl_r16, offset, rA, rB, rC
@@ -284,5 +284,22 @@ sc4 .req r12
 	ldrh \rB,[cpuregs,\offset]
 	@Im not doing the h flag right now
 	adds \rC,\rA,\rB
+.endm
 
+
+.macro cp_A_reg8 rA,rB,regname
+	ldrb \rA,[cpuregs,A_reg]
+	ldrb \rB,[cpuregs,\regname]
+	cmp \rA,\rB
+	it eq
+	moveq cpuflags,0xc0 @If they are equal, we can stop early
+	it mi				@they are not equal
+	movmi cpuflags,0x50 @negative - N and C flags set
+	it gt
+	movgt cpuflags,0x60	@gt or eq - N set, Z and C flags clear
+	and \rA,0xf
+	and \rB,0xf
+	cmp \rA,\rB
+	it mi
+	orrmi cpuflags,hflag_set
 .endm
