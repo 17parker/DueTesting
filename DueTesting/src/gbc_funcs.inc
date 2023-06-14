@@ -24,12 +24,17 @@ sc4 .req r12
 
 .macro get_opmi
 	ldrbmi gbc_op,[progc],1
-	ldrmi pc,[xlbl_addr,gbc_op]
+	ldrmi pc,[xlbl_addr,gbc_op,lsl 2]
 .endm
 
 .macro get_oplt
 	ldrblt gbc_op,[progc],1
-	ldrlt pc,[xlbl_addr,gbc_op]
+	ldrlt pc,[xlbl_addr,gbc_op,lsl 2]
+.endm
+
+.macro get_opeq
+	ldrbeq gbc_op,[progc],1
+	ldreq pc,[xlbl_addr,gbc_op,lsl 2]
 .endm
 
 .equ zflag_clear, 0x7f
@@ -55,6 +60,7 @@ sc4 .req r12
 .equ wram0_reg, 8
 .equ wramn_reg, 12
 .equ vramn_reg, 16
+.equ SC_reg, 20
 
 .macro get_1_arg
 	ldrb args,[progc],1
@@ -291,12 +297,12 @@ sc4 .req r12
 	ldrb \rA,[cpuregs,A_reg]
 	ldrb \rB,[cpuregs,\regname]
 	cmp \rA,\rB
-	it eq
+	ittt eq
 	moveq cpuflags,0xc0 @If they are equal, we can stop early
-	it mi				@they are not equal
+	get_opeq
+	ite mi				@they are not equal
 	movmi cpuflags,0x50 @negative - N and C flags set
-	it gt
-	movgt cpuflags,0x60	@gt or eq - N set, Z and C flags clear
+	movpl cpuflags,0x60	@gt or eq - N set, Z and C flags clear
 	and \rA,0xf
 	and \rB,0xf
 	cmp \rA,\rB

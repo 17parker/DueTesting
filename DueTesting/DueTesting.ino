@@ -21,7 +21,7 @@ extern "C" {
 
 void start_peripherals() {
 	pmc_enable_periph_clk(ID_SMC);
-	pmc_enable_periph_clk(ID_SPI0);
+	//pmc_enable_periph_clk(ID_SPI0);
 	pio_enable_output(PIOA, (1 << 6) | (1 << 7) | (1 << 25) | (1 << 26) | (1 << 27) | (1 << 28) | (1 << 29));
 	pio_disable_pullup(PIOA, (1 << 6) | (1 << 7) | (1 << 25) | (1 << 26) | (1 << 27) | (1 << 28) | (1 << 29));
 	pio_disable_pio(PIOA, (1 << 6) | (1 << 7) | (1 << 25) | (1 << 26) | (1 << 27) | (1 << 28) | (1 << 29));

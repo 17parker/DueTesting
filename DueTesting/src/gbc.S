@@ -73,7 +73,6 @@ lower\@: @\rA holds the 16-bit address
 	get_oplt
 	ldr \rB,=wramn
 	strb \data,[\rB,\rA]
-	get_op
 .endm
 
 .macro ld_rr_nn cpu_offset,rdata @load into 16-bit register rr the immediate data
@@ -107,9 +106,9 @@ wram7: .space 0x1000
 
 
 cpu_regs_addr: .space 20
-@C B BC E D DE L H HL F A AF  WRAM0_addr WRAMn_addr VRAMn_addr
+@C B BC E D DE L H HL F A AF  WRAM0_addr WRAMn_addr VRAMn_addr scratch_reg
 @Reg order:
-@0 1 0  2 3 2  4 5 4  6 7 6   8          12			16
+@0 1 0  2 3 2  4 5 4  6 7 6   8          12			16		   20
 
 
 .data
@@ -448,8 +447,55 @@ x01: @LD BC,d16 - no flags TESTED-WORKS
 	get_op
 
 x02: @LD (BC),A - Load to the absolute address (BC), data from the 8-bit A register
-	ldrb sc0,[cpuregs,A_reg]
-	ld_ra16_d8 BC_reg, sc0,sc1,sc1
+	ldrb sc0,[cpuregs,A_reg]  @sc0 holds the data from A_reg
+	ldrh sc1,[cpuregs,BC_reg] @sc1 holds the 16-bit address
+	add sc2,sc1,1
+	tst sc2,0x10000
+	bne IER_write0			@pass sc0 to IER
+	subs sc2,sc1,0xFE00
+	blt lower0				@pass sc1 to lower
+	subs sc1,sc2,0x100
+	blt OAM_write0			@pass sc2 to OAM
+	subs sc2,sc1,0x80
+	blt IO_write0
+	ldr sc2,=hram			@pass sc2 to IO
+	strb sc0,[sc2,sc1]		@pass sc2 to HRAM
+	get_op
+
+IER_write0:
+	@sc0 has value writing to IER
+	get_op
+
+OAM_write0:
+	@sc2 has low 8 bits of address
+	get_op
+
+IO_write0:
+	@sc2 has low 8 bits of address
+	get_op
+
+lower0: @sc1 holds the 16-bit address
+	subs sc2,sc1,0x8000
+	ittt lt
+	strblt sc0,[cartaddr,sc1]
+	get_oplt
+	subs sc1,sc2,0x2000
+	itttt lt
+	ldrlt sc1,=vramn
+	strblt sc0,[sc1,sc2]
+	get_oplt
+	subs sc2,sc1,0x2000
+	itttt lt
+	ldrlt sc2,=extram
+	strblt sc0,[sc2,sc1]
+	get_oplt
+	subs sc1,sc2,0x1000
+	itttt lt
+	ldrlt sc1,=wram0
+	strblt sc0,[sc1,sc2]
+	get_oplt
+	ldr sc2,=wramn
+	strb sc0,[sc2,sc1]
 	get_op
 
 
@@ -485,7 +531,6 @@ x07: @RLCA - Rotate A left, old bit 7 to carry. Z flag conditionally set, N, H c
 
 x08: @LD (nn),SP - load to the absolute address specified by the 16-bit operand nn, data from the 16-bit SP register
 	get_2_arg
-	
 	get_op
 
 x09: @ADD HL,BC - z ignored, n cleared, h, c conditionally set.
@@ -587,7 +632,11 @@ x21: @LD HL,d16 - no flags TESTED-WORKS
 	get_op
 
 x22: @LD (HL+),A - Same as LD (HL),A - INC HL
-	@this needs to catch write access
+	ldrh sc4,[cpuregs,HL_reg]
+	strh sc4,[cpuregs,SC_reg] @use a different register for small optimization
+	inc_reg16 sc3,HL_reg
+	ldrb sc0,[cpuregs,A_reg]
+	ld_ra16_d8 SC_reg,sc0,sc1,sc2
 	get_op
    
 x23: @INC HL
@@ -650,7 +699,12 @@ x31: @LD sp,d16 - load immediate into stack pointer
    	get_op	
 
 x32: @LD (HL-),A
-
+	ldrh sc4,[cpuregs,HL_reg]
+	strh sc4,[cpuregs,SC_reg] @use a different register for small optimization
+	dec_reg16 sc3,HL_reg
+	ldrb sc0,[cpuregs,A_reg]
+	ld_ra16_d8 SC_reg,sc0,sc1,sc2
+	get_op
 	 
 x33: @INC SP
 
@@ -664,6 +718,7 @@ x35: @DEC (HL)
 x36: @LD (HL),d8
 	get_1_arg
 	ld_ra16_d8 HL_reg,args,sc0,sc1
+	get_op
 
 x37: @SCF
 	 
@@ -878,26 +933,32 @@ x6f: @LD L,A
 x70: @LD (HL),B
 	ldrb sc0,[cpuregs,B_reg]
 	ld_ra16_d8 HL_reg,sc0,sc1,sc2
+	get_op
 	 
 x71: @LD (HL),C
 	ldrb sc0,[cpuregs,C_reg]
 	ld_ra16_d8 HL_reg,sc0,sc1,sc2
+	get_op
 	 
 x72: @LD (HL),D
 	ldrb sc0,[cpuregs,D_reg]
 	ld_ra16_d8 HL_reg,sc0,sc1,sc2
+	get_op
 	 
 x73: @LD (HL),E
 	ldrb sc0,[cpuregs,E_reg]
 	ld_ra16_d8 HL_reg,sc0,sc1,sc2
+	get_op
 	 
 x74: @LD (HL),H
 	ldrb sc0,[cpuregs,H_reg]
 	ld_ra16_d8 HL_reg,sc0,sc1,sc2
+	get_op
 	 
 x75: @LD (HL),L
 	ldrb sc0,[cpuregs,L_reg]
 	ld_ra16_d8 HL_reg,sc0,sc1,sc2
+	get_op
 	 
 x76: @HALT
 	@wait for interrupts
@@ -1317,7 +1378,11 @@ xe9: @JP (HL)
 
 	 
 xea: @LD (a16),A - put A into address (a16) addr fix
-
+	get_2_arg
+	strh args,[cpuregs,SC_reg]
+	ldrb sc0,[cpuregs,A_reg]
+	ld_ra16_d8 SC_reg,sc0,sc1,sc2
+	get_op
 	 
 xeb:@unused
 	 
@@ -1375,12 +1440,12 @@ xfe: @CP d8 - compare A with d8 - (A - d8) - Set N, conditionally set Z,H, C is 
 	ldrb sc0,[cpuregs,A_reg]
 	mov sc1,args		@moving args to sc1 so args isnt clobbered, for debugging reasons
 	cmp sc0,sc1
-	it eq
+	ittt eq
 	moveq cpuflags,0xc0
-	it mi				@they are not equal
+	get_opeq
+	ite mi				@they are not equal
 	movmi cpuflags,0x50 @negative - N and C flags set
-	it gt
-	movgt cpuflags,0x60	@gt or eq - N set, Z and C flags clear
+	movpl cpuflags,0x60	@gt or eq - N set, Z and C flags clear
 	and sc0,0xf
 	and sc1,0xf
 	cmp sc0,sc1
