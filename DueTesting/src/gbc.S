@@ -436,7 +436,9 @@ gbc:
 	strb r8,[r0,0x41]
 	mov r8,0x80
 	strb r8,[cpuregs,F_reg]
+	mov r0,r0
 	bkpt 12
+	mov r0,r0
 	get_op
 
 x00: @NOP

@@ -47,14 +47,14 @@ void start_peripherals() {
 	pio_set_periph_mode_A(PIOD, 1 | (1 << 1) | (1 << 2) | (1 << 3) | (1 << 4) | (1 << 5));
 
 	//SMC setup
-	REG_SMC_MODE0 = (1 << 1); //Read controlled by NCS, write is controlled by NWE
-	REG_SMC_MODE1 = (1 << 1); //Read controlled by NCS, write is controlled by NWE
-	REG_SMC_SETUP0 = 16 | (5 << 8) | (20 << 16) | (5 << 24);
-	REG_SMC_PULSE0 = 9 | (20 << 8) | (9 << 16) | (25 << 24);
-	REG_SMC_CYCLE0 = 40 | (40 << 16);
-	REG_SMC_SETUP1 = 16 | (5 << 8) | (20 << 16) | (5 << 24);
-	REG_SMC_PULSE1 = 9 | (20 << 8) | (9 << 16) | (25 << 24);
-	REG_SMC_CYCLE1 = 40 | (40 << 16);
+	REG_SMC_MODE0 = 0; //Read controlled by NCS, write is controlled by NWE
+	REG_SMC_MODE1 = 0; //Read controlled by NCS, write is controlled by NWE
+	REG_SMC_SETUP0 = 23 | (0 << 8) | (0 << 16) | (5 << 24);
+	REG_SMC_PULSE0 = 28 | (62 << 8) | (62 << 16) | (56 << 24);
+	REG_SMC_CYCLE0 = 75 | (75 << 16);
+	REG_SMC_SETUP1 = 23 | (0 << 8) | (0 << 16) | (5 << 24);
+	REG_SMC_PULSE1 = 28 | (62 << 8) | (62 << 16) | (56 << 24);
+	REG_SMC_CYCLE1 = 75 | (75 << 16);
 
 	//SPI setup
 }
