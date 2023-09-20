@@ -102,7 +102,7 @@ wram4: .space 0x1000
 wram5: .space 0x1000
 wram6: .space 0x1000
 wram7: .space 0x1000
-
+pixels: .space 46080
 
 
 cpu_regs_addr: .space 20
