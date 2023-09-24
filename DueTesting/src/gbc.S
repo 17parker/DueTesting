@@ -501,54 +501,7 @@ x01: @LD BC,d16 - no flags TESTED-WORKS
 
 x02: @LD (BC),A - Load to the absolute address (BC), data from the 8-bit A register
 	ldrb sc0,[cpuregs,A_reg]  @sc0 holds the data from A_reg
-	ldrh sc1,[cpuregs,BC_reg] @sc1 holds the 16-bit address
-	add sc2,sc1,1
-	tst sc2,0x10000
-	bne IER_write0			@pass sc0 to IER
-	subs sc2,sc1,0xFE00
-	blt lower0				@pass sc1 to lower
-	subs sc1,sc2,0x100
-	blt OAM_write0			@pass sc2 to OAM
-	subs sc2,sc1,0x80
-	blt IO_write0
-	ldr sc2,=hram			@pass sc2 to IO
-	strb sc0,[sc2,sc1]		@pass sc2 to HRAM
-	get_op
-
-IER_write0:
-	@sc0 has value writing to IER
-	get_op
-
-OAM_write0:
-	@sc2 has low 8 bits of address
-	get_op
-
-IO_write0:
-	@sc2 has low 8 bits of address
-	get_op
-
-lower0: @sc1 holds the 16-bit address
-	subs sc2,sc1,0x8000
-	ittt lt
-	strblt sc0,[cartaddr,sc1]
-	get_oplt
-	subs sc1,sc2,0x2000
-	itttt lt
-	ldrlt sc1,=vramn
-	strblt sc0,[sc1,sc2]
-	get_oplt
-	subs sc2,sc1,0x2000
-	itttt lt
-	ldrlt sc2,=extram
-	strblt sc0,[sc2,sc1]
-	get_oplt
-	subs sc1,sc2,0x1000
-	itttt lt
-	ldrlt sc1,=wram0
-	strblt sc0,[sc1,sc2]
-	get_oplt
-	ldr sc2,=wramn
-	strb sc0,[sc2,sc1]
+	ld_ra16_d8 BC_reg, sc0,sc1,sc2
 	get_op
 
 
@@ -1029,6 +982,7 @@ x76: @HALT
 x77: @LD (HL),A
 	ldrb sc0,[cpuregs,A_reg]
 	ld_ra16_d8 HL_reg,sc0,sc1,sc2
+	get_op
 	 
 x78: @LD A,B
 	ld_reg8_reg8 sc0,A_reg,B_reg
