@@ -65,6 +65,10 @@ sc4 .req r12
 .equ vramn_reg, 16
 .equ SC_reg, 20
 
+.macro get_1_arg_signed
+	ldrsb args,[progc],1
+.endm
+
 .macro get_1_arg
 	ldrb args,[progc],1
 .endm
@@ -135,23 +139,24 @@ sc4 .req r12
 	strb \rA,[cpuregs,\dstreg]
 .endm
 
-.macro inc_reg8, rA,rB, regname  @rA,rB are free registers, regname is the register
+.macro inc_reg8, rA, regname  @rA,rB are free registers, regname is the register
 	ldrb \rA,[cpuregs,\regname] @rA has previous value of reg
-	add \rB,\rA,1
-	strb \rB,[cpuregs,\regname]
-	cmp \rA,0xf    @h-flag: a carry from bit 3 will only happen if bits 3:0 are 1
+	add \rA,1
+	strb \rA,[cpuregs,\regname]
+	tst \rA,0xf    @h-flag: a carry from bit 3 will only happen if bits 3:0 are 1
 	set_h_eq
-	cmp \rA,0xff   @z-flag: zero if all 8 bits are 1
+	tst \rA,0xff   @z-flag: zero if all 8 bits are 1
 	set_z_eq
 	clear_nflag
 .endm
 
-.macro dec_reg8, rA,rB,regname  @rA,rB are free registers, regname is the register
+.macro dec_reg8, rA,regname  @rA,rB are free registers, regname is the register
 	ldrb \rA,[cpuregs,\regname]
-	subs \rB,\rA,1
-	strb \rB,[cpuregs,\regname]
+	subs \rA,1
+	strb \rA,[cpuregs,\regname]
 	set_z_eq
-	tst \rA,0x0f    @borrow from 4 can only happen if bits 3:0 are 0
+	and \rA,0xf
+	teq \rA,0xf    @borrow from 4 can only happen if bits 3:0 are 0
 	set_h_eq
 	set_nflag
 .endm
@@ -311,4 +316,21 @@ sc4 .req r12
 	cmp \rA,\rB
 	it mi
 	orrmi cpuflags,hflag_set
+.endm
+
+@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@ PREFIX CB MACROS
+
+.macro rlc_r8 rA, regname @rA is free, regname is the 8-bit CPU reg
+	ldrb \rA,[cpuregs,\regname]
+	eor cpuflags,cpuflags
+	tst \rA,\rA
+	ittt eq						@if reg is 0, we are done
+	orreq cpuflags,zflag_set
+	get_opeq
+	tst \rA,0x80				@check MSB, set flags as necessary
+	lsl \rA,1
+	itt ne
+	orrne \rA,1
+	orrne cpuflags,cflag_set
+	strb \rA,[cpuregs,\regname]
 .endm

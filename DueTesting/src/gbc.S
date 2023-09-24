@@ -1,7 +1,7 @@
 .syntax unified
 
 
-@#define debug				@This puts bkpt in get_op
+#define debug				@This puts bkpt in get_op
 @#define debug_mem_catch
 .include "src/gbc_funcs.inc"
 
@@ -160,6 +160,7 @@ pixels: .space 46080
 
 
 cpu_regs_addr: .space 20
+@NOTE: because my CPU flags are in a register, the F register here is never updated
 @C B BC E D DE L H HL F A AF  WRAM0_addr WRAMn_addr VRAMn_addr scratch_reg
 @Reg order:
 @0 1 0  2 3 2  4 5 4  6 7 6   8          12			16		   20
@@ -439,12 +440,15 @@ x_lbl:
     .word xfe+1
     .word xff+1
 
+
+cb_lbl:
+	.word cb00+1
+
 @OPTIMIZATIONS:
 @For operations that load CPU registers, if the registers are adjacent, I can do one ldrh instead of two ldrb
 @In some cases, its faster to clear all cpu flags at once and OR them if necesssary (the final flag check will just be an it instead of ite)
 
 @Does anything special happen when H/L are written to
-@I need to figure out the memory catches
 
 @Resources:
 @https://web.eecs.umich.edu/~prabal/teaching/eecsc373-f10/readings/ARMv7-M_ARM.pdf
@@ -494,7 +498,7 @@ gbc:
 
 x00: @NOP
 	get_op
-x01: @LD BC,d16 - no flags TESTED-WORKS
+x01: @LD BC,d16 - no flags
 	get_2_arg
 	ld_rr_nn BC_reg,args
 	get_op
@@ -512,11 +516,11 @@ x03: @INC BC - no flags
 .ltorg
 
 x04: @INC B - z if result is 0, N is reset, H if carry from bit 3
-	inc_reg8 sc0,sc1,B_reg
+	inc_reg8 sc0,B_reg
 	get_op
 
 x05: @DEC B - z if result is 0, N is set, H is set if borrow from bit 4
-	dec_reg8 sc0,sc1,B_reg
+	dec_reg8 sc0,B_reg
 	get_op
 
 x06: @LD B,d8
@@ -524,15 +528,15 @@ x06: @LD B,d8
 	ld_reg8_d8 B_reg
 	get_op
 
-x07: @RLCA - Rotate A left, old bit 7 to carry. Z flag conditionally set, N, H cleared
+x07: @RLCA - Rotate A left, old bit 7 to bit 0 and carry. Z, N, H cleared
 	ldrb sc0,[cpuregs,A_reg] @sc0 holds register A
-	lsls sc0,sc0,1
+	tst sc0,0x80
+	lsl sc0,1
+	eor cpuflags,cpuflags		 @clear all flags, set c as necessary
+	itt ne
+	orrne sc0,1
+	orrne cpuflags,cflag_set
 	strb sc0,[cpuregs,A_reg]
-	ite cs
-	movcs cpuregs,0x10  @set the carry flag
-	movcc cpuregs,0 @clear the carry flag
-	it eq
-	orreq cpuregs,cpuregs,zflag_set @set the Z flag
 	get_op
 
 x08: @LD (nn),SP - load to the absolute address specified by the 16-bit operand nn, data from the 16-bit SP register
@@ -551,11 +555,11 @@ x0b: @DEC BC - no flags
 	get_op
 
 x0c: @INC C
-	inc_reg8 sc0,sc1,C_reg
+	inc_reg8 sc0,C_reg
 	get_op
 
 x0d: @DEC C
-	dec_reg8 sc0,sc1,C_reg
+	dec_reg8 sc0,C_reg
 	get_op
 
 x0e: @LD C,d8 - no flags
@@ -565,12 +569,12 @@ x0e: @LD C,d8 - no flags
 
 x0f: @RRCA
 
-x10: @STOP 0
+x10: @STOP 0 - clock, oscillator, lcd controller are stopped, cancelled by reset signal
 	bkpt 99
 stoplbl:
 	b stoplbl
 
-x11: @LD DE, d16 TESTED-WORKS
+x11: @LD DE, d16
 	get_2_arg		
 	ld_rr_nn DE_reg,args
 	get_op
@@ -585,11 +589,11 @@ x13: @INC DE
 	get_op
 	 
 x14: @INC D
-	inc_reg8 sc0,sc1,D_reg
+	inc_reg8 sc0,D_reg
 	get_op
 	 
 x15: @DEC D
-	dec_reg8 sc0,sc1,D_reg
+	dec_reg8 sc0,D_reg
 	get_op
 	 
 x16: @LD D,d8
@@ -610,11 +614,11 @@ x1b: @DEC DE
 	get_op
 	 
 x1c: @INC E
-	inc_reg8 sc0,sc1,E_reg
+	inc_reg8 sc0,E_reg
 	get_op
 
 x1d: @DEC E
-	dec_reg8 sc0,sc1,E_reg
+	dec_reg8 sc0,E_reg
 	get_op
 	 
 x1e: @LD E,d8
@@ -625,14 +629,14 @@ x1e: @LD E,d8
 x1f: @RRA
 
 
-x20: @JR NZ,r8 - jump to (PC + r8) if Zero flag is reset - r8 is SIGNED
-	get_1_arg
+x20: @JR NZ,s8 - jump to (PC + s8) if Zero flag is reset - s8 is SIGNED
+	get_1_arg_signed
 	tst cpuflags,zflag_set
-	it ne
-	addne progc,progc,args
+	it eq
+	addeq progc,progc,args
 	get_op
 
-x21: @LD HL,d16 - no flags TESTED-WORKS
+x21: @LD HL,d16 - no flags
 	get_2_arg
 	ld_rr_nn HL_reg,args
 	get_op
@@ -647,15 +651,15 @@ x22: @LD (HL+),A - Same as LD (HL),A - INC HL
 	get_op
    
 x23: @INC HL
-	inc_reg16 r0,HL_reg
+	inc_reg16 sc0,HL_reg
 	get_op
 	 
 x24: @INC H
-	inc_reg8 r0,r8,H_reg
+	inc_reg8 sc0,H_reg
 	get_op
 	 
 x25: @DEC H
-	dec_reg8 r0,r8,H_reg
+	dec_reg8 sc0,H_reg
 	get_op
 	 
 x26: @LD H,d8
@@ -679,11 +683,11 @@ x2b: @DEC HL
 	get_op
 	 
 x2c: @INC L
-	inc_reg8 r0,r8,L_reg
+	inc_reg8 sc0,L_reg
 	get_op
 	 
 x2d: @DEC L
-	dec_reg8 r0,r8,L_reg
+	dec_reg8 sc0,L_reg
 	get_op
 	 
 x2e: @LD L,d8
@@ -744,14 +748,14 @@ x3b: @DEC SP
 
 	 
 x3c: @INC A
-	inc_reg8 sc0,sc1,A_reg
+	inc_reg8 sc0,A_reg
 	get_op
 
 x3d: @DEC A
-	dec_reg8 sc0,sc1,A_reg
+	dec_reg8 sc0,A_reg
 	get_op
 	 
-x3e: @LD A,d8 - No flags affected  TESTED-WORKS
+x3e: @LD A,d8 - No flags affected 
 	get_1_arg
 	ld_reg8_d8 A_reg
 	get_op
@@ -975,7 +979,7 @@ x75: @LD (HL),L
 	ld_ra16_d8 HL_reg,sc0,sc1,sc2
 	get_op
 	 
-x76: @HALT
+x76: @HALT - clock stopped, oscillator and lcd controller keep going. cancelled by interrupt or reset signal
 	@wait for interrupts
 	get_op
 	 
@@ -1136,7 +1140,7 @@ x9d: @SBC A,L
 x9e: @SBC A,(HL)
 	get_op
 	 
-x9f: @SBC A,A - UNTESTED
+x9f: @SBC A,A
 	tst cpuflags,cflag_set
 	ittee eq
 	moveq r0,0xff
@@ -1256,7 +1260,7 @@ xbd: @CP L
 xbe: @CP (HL)
 
 	 
-xbf: @CP A - I feel like this is to easy, CP A is always going to be 0
+xbf: @CP A - I feel like this is too easy, CP A is always going to be 0
 	mov cpuflags,0xc0
 	get_op
 	 
@@ -1273,7 +1277,7 @@ xc2: @JP NZ,a16
 	addeq progc,args,cartaddr
 	get_op
 
-xc3: @JP a16 - WORKS
+xc3: @JP a16
 	get_2_arg
 	add progc,args,cartaddr
 	get_op
@@ -1305,7 +1309,9 @@ xca: @JP Z,a16
 
 	 
 xcb: @PREFIX CB
-
+	get_1_arg	@args holds the CB opcode
+	ldr sc0,=cb_lbl
+	ldr pc,[sc0,args,lsl 2]
 	 
 xcc: @CALL Z,a16
 
@@ -1470,3 +1476,8 @@ xfe: @CP d8 - compare A with d8 - (A - d8) - Set N, conditionally set Z,H, C is 
 	get_op
 
 xff: @RST 38H
+
+
+cb00: @RLC B - Rotate B. old bit 7 goes to carry and to bit 0. Z is conditionally set, N,H cleared
+	rlc_r8 sc0,B_reg
+	get_op
