@@ -1,5 +1,8 @@
 .syntax unified
 
+
+@#define debug				@This puts bkpt in get_op
+@#define debug_mem_catch
 .include "src/gbc_funcs.inc"
 
 IER_write:
@@ -25,61 +28,112 @@ OAM_read:
 .endm
 
 .macro ld_ra16_d8, offset, data, rA, rB @load into (ra16) the data d8
+#ifdef debug_mem_catch
+	mov sc4,0xff
+#endif
 	ldrh \rA,[cpuregs,\offset] @rA holds the 16-bit address
 	add \rB,\rA,1
-	tst \rB,0x10000
+	tst \rB,0x10000			@check for IER
 	bne IER_write\@
-	subs \rB,\rA,0xFE00
-	blt lower\@				@pass rA to lower
-	subs \rA,\rB,0x100
-	blt OAM_write\@			@pass RB to OAM
-	subs \rB,\rA,0x80
-	blt IO_write\@
-	ldr \rB,=hram			@pass RA to IO
-	strb \data,[\rB,\rA]	@pass RB to HRAM
+	subs \rB,\rA,0xFE00		@check if in lower memory space
+	blt lower\@					@pass rA to lower
+	subs \rA,\rB,0x100		@check if in OAM
+	blt OAM_write\@				@pass RB to OAM
+	subs \rB,\rA,0x80		@check if in IO
+	blt IO_write\@				@pass RA to IO
+	ldr \rB,=hram			@it is in HRAM
+#ifdef debug_mem_catch
+	mov sc4,0
+	b exit_ra16_d8\@
+#else
+	strb \data,[\rB,\rA]	@store RB in HRAM
 	get_op
+#endif
 
 IER_write\@:
 	@\data has value writing to IER
+#ifdef debug_mem_catch
+	mov sc4,0x1
+	b exit_ra16_d8\@
+#else
 	get_op
+#endif
+
 
 OAM_write\@:
 	@\rB has low 8 bits of address
+#ifdef debug_mem_catch
+	mov sc4,0x2
+	b exit_ra16_d8\@
+#else
 	get_op
+#endif
+
 
 IO_write\@:
 	@\rB has low 8 bits of address
+#ifdef debug_mem_catch
+	mov sc4,0x3
+	b exit_ra16_d8\@
+#else
 	get_op
+#endif
 
 lower\@: @\rA holds the 16-bit address
-	subs \rB,\rA,0x8000
+	subs \rB,\rA,0x8000				@check if in cart
+#ifdef debug_mem_catch
+	mov sc4,0x4
+	blt exit_ra16_d8\@
+#else
 	ittt lt
 	strblt \data,[cartaddr,\rA]
 	get_oplt
-	subs \rA,\rB,0x2000
+#endif
+	subs \rA,\rB,0x2000				@check if in vram
+#ifdef debug_mem_catch
+	mov sc4,0x5
+	blt exit_ra16_d8\@
+#else
 	itttt lt
 	ldrlt \rA,=vramn
 	strblt \data,[\rA,\rB]
 	get_oplt
-	subs \rB,\rA,0x2000
+#endif
+	subs \rB,\rA,0x2000				@check if in extram
+#ifdef debug_mem_catch
+	mov sc4,0x6
+	blt exit_ra16_d8\@
+#else
 	itttt lt
 	ldrlt \rB,=extram
 	strblt \data,[\rB,\rA]
 	get_oplt
-	subs \rA,\rB,0x1000
+#endif
+	subs \rA,\rB,0x1000				@check if in wram0
+#ifdef debug_mem_catch
+	mov sc4,0x7
+	blt exit_ra16_d8\@
+#else
 	itttt lt
 	ldrlt \rA,=wram0
 	strblt \data,[\rA,\rB]
 	get_oplt
+#endif
+#ifdef debug_mem_catch				
+	mov sc4,0x8						@it is in wramn
+	b exit_ra16_d8\@
+#else
 	ldr \rB,=wramn
-	strb \data,[\rB,\rA]
+	strb \data,[\rB,\rA]			@the last get_op is outside the macro so the breakpoint in get_op is hit
+#endif
+#ifdef debug_mem_catch
+exit_ra16_d8\@:
+#endif
 .endm
 
 .macro ld_rr_nn cpu_offset,rdata @load into 16-bit register rr the immediate data
 	strh \rdata,[cpuregs,\cpu_offset]
 .endm
-
-
 
 
 .bss
@@ -436,9 +490,6 @@ gbc:
 	strb r8,[r0,0x41]
 	mov r8,0x80
 	strb r8,[cpuregs,F_reg]
-	mov r0,r0
-	bkpt 12
-	mov r0,r0
 	get_op
 
 x00: @NOP
@@ -634,9 +685,10 @@ x21: @LD HL,d16 - no flags TESTED-WORKS
 	get_op
 
 x22: @LD (HL+),A - Same as LD (HL),A - INC HL
-	ldrh sc4,[cpuregs,HL_reg]
-	strh sc4,[cpuregs,SC_reg] @use a different register for small optimization
-	inc_reg16 sc3,HL_reg
+	ldrh sc3,[cpuregs,HL_reg]
+	strh sc3,[cpuregs,SC_reg] @use a different register for small optimization
+	add sc3,1
+	strh sc3,[cpuregs,HL_reg]
 	ldrb sc0,[cpuregs,A_reg]
 	ld_ra16_d8 SC_reg,sc0,sc1,sc2
 	get_op
@@ -701,9 +753,10 @@ x31: @LD sp,d16 - load immediate into stack pointer
    	get_op	
 
 x32: @LD (HL-),A
-	ldrh sc4,[cpuregs,HL_reg]
-	strh sc4,[cpuregs,SC_reg] @use a different register for small optimization
-	dec_reg16 sc3,HL_reg
+	ldrh sc3,[cpuregs,HL_reg]
+	strh sc3,[cpuregs,SC_reg] @use a different register for small optimization
+	sub sc3,1
+	strh sc3,[cpuregs,HL_reg]
 	ldrb sc0,[cpuregs,A_reg]
 	ld_ra16_d8 SC_reg,sc0,sc1,sc2
 	get_op
@@ -927,26 +980,33 @@ x6d: @LD L,L
 	 
 x6e: @LD L,(HL)
 
-	 
+
 x6f: @LD L,A
 	ld_reg8_reg8 sc0,L_reg,A_reg
 	get_op
 	 
+
 x70: @LD (HL),B
 	ldrb sc0,[cpuregs,B_reg]
 	ld_ra16_d8 HL_reg,sc0,sc1,sc2
 	get_op
-	 
+	
+.ltorg
+	
 x71: @LD (HL),C
 	ldrb sc0,[cpuregs,C_reg]
 	ld_ra16_d8 HL_reg,sc0,sc1,sc2
 	get_op
 	 
+.ltorg
+
 x72: @LD (HL),D
 	ldrb sc0,[cpuregs,D_reg]
 	ld_ra16_d8 HL_reg,sc0,sc1,sc2
 	get_op
 	 
+.ltorg
+
 x73: @LD (HL),E
 	ldrb sc0,[cpuregs,E_reg]
 	ld_ra16_d8 HL_reg,sc0,sc1,sc2

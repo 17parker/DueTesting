@@ -19,7 +19,7 @@ extern "C" {
 		SystemInit();
 		NVIC_DisableIRQ(SysTick_IRQn);
 		//delayMicros(1000000);
-		start_lcd();
+		//start_lcd();
 		start_peripherals();
 		delayMicros(1000);
 		gbc();
