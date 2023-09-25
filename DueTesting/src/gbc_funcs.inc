@@ -320,7 +320,7 @@ sc4 .req r12
 
 @@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@ PREFIX CB MACROS
 
-.macro rlc_r8 rA, regname @rA is free, regname is the 8-bit CPU reg
+.macro cb_rlc_r8 rA, regname @rA is free, regname is the 8-bit CPU reg
 	ldrb \rA,[cpuregs,\regname]
 	eor cpuflags,cpuflags
 	tst \rA,\rA
@@ -334,3 +334,32 @@ sc4 .req r12
 	orrne cpuflags,cflag_set
 	strb \rA,[cpuregs,\regname]
 .endm
+
+
+.macro cb_reset_bit rA,regname,bitnum
+	ldrb \rA,[cpuregs,\regname]
+	bic \rA,\bitnum
+	strb \rA,[cpuregs,\regname]
+.endm
+
+
+.macro cb_set_bit rA,regname,bitnum
+	ldrb \rA,[cpuregs,\regname]
+	orr \rA,\bitnum
+	strb \rA,[cpuregs,\regname]
+.endm
+
+
+.macro cb_bit rA,regname,bitnum
+	ldrb \rA,[cpuregs,\regname]
+	tst \rA,\bitnum
+	ite ne
+	andne cpuflags,zflag_clear
+	orreq cpuflags,zflag_set
+	clear_nflag
+	set_hflag
+	strb \rA,[cpuregs,\regname]
+.endm
+
+
+

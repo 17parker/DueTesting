@@ -156,7 +156,7 @@ wram4: .space 0x1000
 wram5: .space 0x1000
 wram6: .space 0x1000
 wram7: .space 0x1000
-pixels: .space 46080
+@pixels: .space 46080
 
 
 cpu_regs_addr: .space 20
@@ -1479,5 +1479,20 @@ xff: @RST 38H
 
 
 cb00: @RLC B - Rotate B. old bit 7 goes to carry and to bit 0. Z is conditionally set, N,H cleared
-	rlc_r8 sc0,B_reg
+	cb_rlc_r8 sc0,B_reg
 	get_op
+
+
+cb40:
+	cb_bit sc0,B_reg,0
+	get_op
+
+
+cb80:
+	cb_reset_bit sc0,B_reg,0
+	get_op
+
+
+
+
+
