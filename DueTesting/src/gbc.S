@@ -443,6 +443,262 @@ x_lbl:
 
 cb_lbl:
 	.word cb00+1
+	.word cb01+1
+	.word cb02+1
+	.word cb03+1
+	.word cb04+1
+	.word cb05+1
+	.word cb06+1
+	.word cb07+1
+	.word cb08+1
+	.word cb09+1
+	.word cb0a+1
+	.word cb0b+1
+	.word cb0c+1
+	.word cb0d+1
+	.word cb0e+1
+	.word cb0f+1
+	.word cb10+1
+	.word cb11+1
+	.word cb12+1
+	.word cb13+1
+	.word cb14+1
+	.word cb15+1
+	.word cb16+1
+	.word cb17+1
+	.word cb18+1
+	.word cb19+1
+	.word cb1a+1
+	.word cb1b+1
+	.word cb1c+1
+	.word cb1d+1
+	.word cb1e+1
+	.word cb1f+1
+	.word cb20+1
+	.word cb21+1
+	.word cb22+1
+	.word cb23+1
+	.word cb24+1
+	.word cb25+1
+	.word cb26+1
+	.word cb27+1
+	.word cb28+1
+	.word cb29+1
+	.word cb2a+1
+	.word cb2b+1
+	.word cb2c+1
+	.word cb2d+1
+	.word cb2e+1
+	.word cb2f+1
+	.word cb30+1
+	.word cb31+1
+	.word cb32+1
+	.word cb33+1
+	.word cb34+1
+	.word cb35+1
+	.word cb36+1
+	.word cb37+1
+	.word cb38+1
+	.word cb39+1
+	.word cb3a+1
+	.word cb3b+1
+	.word cb3c+1
+	.word cb3d+1
+	.word cb3e+1
+	.word cb3f+1
+	.word cb40+1
+	.word cb41+1
+	.word cb42+1
+	.word cb43+1
+	.word cb44+1
+	.word cb45+1
+	.word cb46+1
+	.word cb47+1
+	.word cb48+1
+	.word cb49+1
+	.word cb4a+1
+	.word cb4b+1
+	.word cb4c+1
+	.word cb4d+1
+	.word cb4e+1
+	.word cb4f+1
+	.word cb50+1
+	.word cb51+1
+	.word cb52+1
+	.word cb53+1
+	.word cb54+1
+	.word cb55+1
+	.word cb56+1
+	.word cb57+1
+	.word cb58+1
+	.word cb59+1
+	.word cb5a+1
+	.word cb5b+1
+	.word cb5c+1
+	.word cb5d+1
+	.word cb5e+1
+	.word cb5f+1
+	.word cb60+1
+	.word cb61+1
+	.word cb62+1
+	.word cb63+1
+	.word cb64+1
+	.word cb65+1
+	.word cb66+1
+	.word cb67+1
+	.word cb68+1
+	.word cb69+1
+	.word cb6a+1
+	.word cb6b+1
+	.word cb6c+1
+	.word cb6d+1
+	.word cb6e+1
+	.word cb6f+1
+	.word cb70+1
+	.word cb71+1
+	.word cb72+1
+	.word cb73+1
+	.word cb74+1
+	.word cb75+1
+	.word cb76+1
+	.word cb77+1
+	.word cb78+1
+	.word cb79+1
+	.word cb7a+1
+	.word cb7b+1
+	.word cb7c+1
+	.word cb7d+1
+	.word cb7e+1
+	.word cb7f+1
+	.word cb80+1
+	.word cb81+1
+	.word cb82+1
+	.word cb83+1
+	.word cb84+1
+	.word cb85+1
+	.word cb86+1
+	.word cb87+1
+	.word cb88+1
+	.word cb89+1
+	.word cb8a+1
+	.word cb8b+1
+	.word cb8c+1
+	.word cb8d+1
+	.word cb8e+1
+	.word cb8f+1
+	.word cb90+1
+	.word cb91+1
+	.word cb92+1
+	.word cb93+1
+	.word cb94+1
+	.word cb95+1
+	.word cb96+1
+	.word cb97+1
+	.word cb98+1
+	.word cb99+1
+	.word cb9a+1
+	.word cb9b+1
+	.word cb9c+1
+	.word cb9d+1
+	.word cb9e+1
+	.word cb9f+1
+	.word cba0+1
+	.word cba1+1
+	.word cba2+1
+	.word cba3+1
+	.word cba4+1
+	.word cba5+1
+	.word cba6+1
+	.word cba7+1
+	.word cba8+1
+	.word cba9+1
+	.word cbaa+1
+	.word cbab+1
+	.word cbac+1
+	.word cbad+1
+	.word cbae+1
+	.word cbaf+1
+	.word cbb0+1
+	.word cbb1+1
+	.word cbb2+1
+	.word cbb3+1
+	.word cbb4+1
+	.word cbb5+1
+	.word cbb6+1
+	.word cbb7+1
+	.word cbb8+1
+	.word cbb9+1
+	.word cbba+1
+	.word cbbb+1
+	.word cbbc+1
+	.word cbbd+1
+	.word cbbe+1
+	.word cbbf+1
+	.word cbc0+1
+	.word cbc1+1
+	.word cbc2+1
+	.word cbc3+1
+	.word cbc4+1
+	.word cbc5+1
+	.word cbc6+1
+	.word cbc7+1
+	.word cbc8+1
+	.word cbc9+1
+	.word cbca+1
+	.word cbcb+1
+	.word cbcc+1
+	.word cbcd+1
+	.word cbce+1
+	.word cbcf+1
+	.word cbd0+1
+	.word cbd1+1
+	.word cbd2+1
+	.word cbd3+1
+	.word cbd4+1
+	.word cbd5+1
+	.word cbd6+1
+	.word cbd7+1
+	.word cbd8+1
+	.word cbd9+1
+	.word cbda+1
+	.word cbdb+1
+	.word cbdc+1
+	.word cbdd+1
+	.word cbde+1
+	.word cbdf+1
+	.word cbe0+1
+	.word cbe1+1
+	.word cbe2+1
+	.word cbe3+1
+	.word cbe4+1
+	.word cbe5+1
+	.word cbe6+1
+	.word cbe7+1
+	.word cbe8+1
+	.word cbe9+1
+	.word cbea+1
+	.word cbeb+1
+	.word cbec+1
+	.word cbed+1
+	.word cbee+1
+	.word cbef+1
+	.word cbf0+1
+	.word cbf1+1
+	.word cbf2+1
+	.word cbf3+1
+	.word cbf4+1
+	.word cbf5+1
+	.word cbf6+1
+	.word cbf7+1
+	.word cbf8+1
+	.word cbf9+1
+	.word cbfa+1
+	.word cbfb+1
+	.word cbfc+1
+	.word cbfd+1
+	.word cbfe+1
+	.word cbff+1
+
 
 @OPTIMIZATIONS:
 @For operations that load CPU registers, if the registers are adjacent, I can do one ldrh instead of two ldrb
@@ -1483,19 +1739,32 @@ cb00: @RLC B - Rotate B. old bit 7 goes to carry and to bit 0. Z is conditionall
 	cb_rlc_r8 sc0,B_reg
 	get_op
 
-cb01:
+cb01: @RLC C
+	cb_rlc_r8 sc0,C_reg
+	get_op
 
-cb02:
+cb02: @RLC D
+	cb_rlc_r8 sc0,D_reg
+	get_op
 
-cb03:
+cb03: @RLC E 
+	cb_rlc_r8 sc0,E_reg
+	get_op
 
-cb04:
+cb04: @RLC H
+	cb_rlc_r8 sc0,H_reg
+	get_op
 
-cb05:
+cb05: @RLC L
+	cb_rlc_r8 sc0,L_reg
+	get_op
 
-cb06:
+cb06: @RLC (HL)
 
-cb07:
+
+cb07: @RLC A
+	cb_rlc_r8 sc0,A_reg
+	get_op
 
 cb08:
 
@@ -1577,21 +1846,36 @@ cb2e:
 
 cb2f:
 
-cb30:
+cb30: @SWAP B - set z conditionally, N,H,C cleared
+	cb_swap_r8 sc0,B_reg
+	get_op
 
-cb31:
+cb31: @SWAP C
+	cb_swap_r8 sc0,C_reg
+	get_op
 
-cb32:
+cb32: @SWAP D
+	cb_swap_r8 sc0,D_reg
+	get_op
 
-cb33:
+cb33: @SWAP E
+	cb_swap_r8 sc0,E_reg
+	get_op
 
-cb34:
+cb34: @SWAP H
+	cb_swap_r8 sc0,H_reg
+	get_op
 
-cb35:
+cb35: @SWAP L
+	cb_swap_r8 sc0,L_reg
+	get_op
 
-cb36:
+cb36: @SWAP (HL)
+	get_op
 
-cb37:
+cb37: @SWAP A
+	cb_swap_r8 sc0,A_reg
+	get_op
 
 cb38:
 
@@ -1609,8 +1893,8 @@ cb3e:
 
 cb3f:
 
-cb40:
-	cb_bit sc0,B_reg,0
+cb40: @BIT 0,B
+	cb_bit sc0,0,B_reg
 	get_op
 
 cb41:
@@ -1739,8 +2023,8 @@ cb7e:
 
 cb7f:
 
-cb80:
-	cb_reset_bit sc0,B_reg,0
+cb80: @RES 0,B
+	cb_reset_bit sc0,0,B_reg
 	get_op
 
 

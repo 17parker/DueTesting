@@ -318,7 +318,7 @@ sc4 .req r12
 	orrmi cpuflags,hflag_set
 .endm
 
-@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@ PREFIX CB MACROS
+@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@ PREFIX CB MACROS
 
 .macro cb_rlc_r8 rA, regname @rA is free, regname is the 8-bit CPU reg
 	ldrb \rA,[cpuregs,\regname]
@@ -336,21 +336,21 @@ sc4 .req r12
 .endm
 
 
-.macro cb_reset_bit rA,regname,bitnum
+.macro cb_reset_bit rA,bitnum,regname
 	ldrb \rA,[cpuregs,\regname]
 	bic \rA,\bitnum
 	strb \rA,[cpuregs,\regname]
 .endm
 
 
-.macro cb_set_bit rA,regname,bitnum
+.macro cb_set_bit rA,bitnum,regname
 	ldrb \rA,[cpuregs,\regname]
 	orr \rA,\bitnum
 	strb \rA,[cpuregs,\regname]
 .endm
 
 
-.macro cb_bit rA,regname,bitnum
+.macro cb_bit rA,bitnum,regname
 	ldrb \rA,[cpuregs,\regname]
 	tst \rA,\bitnum
 	ite ne
@@ -362,4 +362,19 @@ sc4 .req r12
 .endm
 
 
+@@ original
+@ aaaa bbbb
+@@@ result = original | (original << 8)
+@ aaaa bbbb aaaa bbbb
+@@@ result >> 4
+@ bbbb aaaa
+.macro cb_swap_r8 rA,regname
+	ldrb \rA,[cpuregs,\regname]
+	mov cpuflags,0
+	orrs \rA,\rA,\rA, lsl 8
+	lsr \rA,4
+	it eq
+	orreq cpuflags,zflag_set
+	strb \rA,[cpuregs,\regname]
+.endm
 
