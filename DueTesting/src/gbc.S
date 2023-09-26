@@ -1,7 +1,7 @@
 .syntax unified
 
 
-#define debug				@This puts bkpt in get_op
+#define debug_bkpts				@This puts bkpt in get_op
 @#define debug_mem_catch
 .include "src/gbc_funcs.inc"
 
@@ -1577,6 +1577,9 @@ xca: @JP Z,a16
 xcb: @PREFIX CB
 	get_1_arg	@args holds the CB opcode
 	ldr sc0,=cb_lbl
+#ifdef debug_bkpts
+	bkpt 22
+#endif
 	ldr pc,[sc0,args,lsl 2]
 	 
 xcc: @CALL Z,a16
