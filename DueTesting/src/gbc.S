@@ -1218,31 +1218,41 @@ x72: @LD (HL),D
 	ld_ra16_d8 HL_reg,sc0,sc1,sc2
 	get_op
 	 
-.ltorg
+
 
 x73: @LD (HL),E
 	ldrb sc0,[cpuregs,E_reg]
 	ld_ra16_d8 HL_reg,sc0,sc1,sc2
 	get_op
-	 
+
+.ltorg 
+
 x74: @LD (HL),H
 	ldrb sc0,[cpuregs,H_reg]
 	ld_ra16_d8 HL_reg,sc0,sc1,sc2
 	get_op
-	 
+ 
+.ltorg
+
 x75: @LD (HL),L
 	ldrb sc0,[cpuregs,L_reg]
 	ld_ra16_d8 HL_reg,sc0,sc1,sc2
 	get_op
 	 
+.ltorg
+
 x76: @HALT - clock stopped, oscillator and lcd controller keep going. cancelled by interrupt or reset signal
 	@wait for interrupts
 	get_op
 	 
+.ltorg
+
 x77: @LD (HL),A
 	ldrb sc0,[cpuregs,A_reg]
 	ld_ra16_d8 HL_reg,sc0,sc1,sc2
 	get_op
+
+.ltorg
 	 
 x78: @LD A,B
 	ld_reg8_reg8 sc0,A_reg,B_reg
@@ -1662,6 +1672,8 @@ xea: @LD (a16),A - put A into address (a16) addr fix
 	ld_ra16_d8 SC_reg,sc0,sc1,sc2
 	get_op
 	 
+.ltorg
+
 xeb:@unused
 	 
 xec:@unused
@@ -1739,112 +1751,187 @@ cb00: @RLC B - Rotate B. old bit 7 goes to carry and to bit 0. Z is conditionall
 	cb_rlc_r8 sc0,B_reg
 	get_op
 
-cb01: @RLC C
+cb01: @RLC,C
 	cb_rlc_r8 sc0,C_reg
 	get_op
 
-cb02: @RLC D
+cb02: @RLC,D
 	cb_rlc_r8 sc0,D_reg
 	get_op
 
-cb03: @RLC E 
+cb03: @RLC,E
 	cb_rlc_r8 sc0,E_reg
 	get_op
 
-cb04: @RLC H
+cb04: @RLC,H
 	cb_rlc_r8 sc0,H_reg
 	get_op
 
-cb05: @RLC L
+cb05: @RLC,L
 	cb_rlc_r8 sc0,L_reg
 	get_op
 
-cb06: @RLC (HL)
+cb06: @RLC,(HL)
 
 
-cb07: @RLC A
+cb07: @RLC,A
 	cb_rlc_r8 sc0,A_reg
 	get_op
 
-cb08:
+cb08: @RRC,B
+	cb_rrc_r8 sc0,B_reg
+	get_op
 
-cb09:
+cb09: @RRC,C
+	cb_rrc_r8 sc0,C_reg
+	get_op
 
-cb0a:
+cb0a: @RRC,D
+	cb_rrc_r8 sc0,D_reg
+	get_op
 
-cb0b:
+cb0b: @RRC,E
+	cb_rrc_r8 sc0,E_reg
+	get_op
 
-cb0c:
+cb0c: @RRC,H
+	cb_rrc_r8 sc0,H_reg
+	get_op
 
-cb0d:
+cb0d: @RRC,L
+	cb_rrc_r8 sc0,L_reg
+	get_op
 
-cb0e:
+cb0e: @RRC,(HL)
 
-cb0f:
 
-cb10:
+cb0f: @RRC,A
+	cb_rrc_r8 sc0,A_reg
+	get_op
 
-cb11:
+cb10: @RL,B
+	cb_rl_r8 sc0,B_reg
+	get_op
 
-cb12:
+cb11: @RL,C
+	cb_rl_r8 sc0,C_reg
+	get_op
 
-cb13:
+cb12: @RL,D
+	cb_rl_r8 sc0,D_reg
+	get_op
 
-cb14:
+cb13: @RL,E
+	cb_rl_r8 sc0,E_reg
+	get_op
 
-cb15:
+cb14: @RL,H
+	cb_rl_r8 sc0,H_reg
+	get_op
 
-cb16:
+cb15: @RL,L
+	cb_rl_r8 sc0,L_reg
+	get_op
 
-cb17:
+cb16: @RL,(HL)
 
-cb18:
 
-cb19:
+cb17: @RL,A
+	cb_rl_r8 sc0,A_reg
+	get_op
 
-cb1a:
+cb18: @RR,B
+	cb_rr_r8 sc0,B_reg
+	get_op
 
-cb1b:
+cb19: @RR,C
+	cb_rr_r8 sc0,C_reg
+	get_op
 
-cb1c:
+cb1a: @RR,D
+	cb_rr_r8 sc0,D_reg
+	get_op
 
-cb1d:
+cb1b: @RR,E
+	cb_rr_r8 sc0,E_reg
+	get_op
 
-cb1e:
+cb1c: @RR,H
+	cb_rr_r8 sc0,H_reg
+	get_op
 
-cb1f:
+cb1d: @RR,L
+	cb_rr_r8 sc0,L_reg
+	get_op
 
-cb20:
+cb1e: @RR,(HL)
 
-cb21:
 
-cb22:
+cb1f: @RR,A
+	cb_rr_r8 sc0,A_reg
+	get_op
 
-cb23:
+cb20: @SLA,B
+	cb_sla_r8 sc0,B_reg
+	get_op
 
-cb24:
+cb21: @SLA,C
+	cb_sla_r8 sc0,C_reg
+	get_op
 
-cb25:
+cb22: @SLA,D
+	cb_sla_r8 sc0,D_reg
+	get_op
 
-cb26:
+cb23: @SLA,E
+	cb_sla_r8 sc0,E_reg
+	get_op
 
-cb27:
+cb24: @SLA,H
+	cb_sla_r8 sc0,H_reg
+	get_op
 
-cb28:
+cb25: @SLA,L
+	cb_sla_r8 sc0,L_reg
+	get_op
 
-cb29:
+cb26: @SLA,(HL)
 
-cb2a:
 
-cb2b:
+cb27: @SLA,A
+	cb_sla_r8 sc0,A_reg
+	get_op
 
-cb2c:
+cb28: @SRA,B
+	cb_sra_r8 sc0,B_reg
+	get_op
 
-cb2d:
+cb29: @SRA,C
+	cb_sra_r8 sc0,C_reg
+	get_op
 
-cb2e:
+cb2a: @SRA,D
+	cb_sra_r8 sc0,D_reg
+	get_op
 
-cb2f:
+cb2b: @SRA,E
+	cb_sra_r8 sc0,E_reg
+	get_op
+
+cb2c: @SRA,H
+	cb_sra_r8 sc0,H_reg
+	get_op
+
+cb2d: @SRA,L
+	cb_sra_r8 sc0,L_reg
+	get_op
+
+cb2e: @SRA,(HL)
+
+
+cb2f: @SRA,A
+	cb_sra_r8 sc0,A_reg
+	get_op
 
 cb30: @SWAP B - set z conditionally, N,H,C cleared
 	cb_swap_r8 sc0,B_reg
@@ -1877,411 +1964,780 @@ cb37: @SWAP A
 	cb_swap_r8 sc0,A_reg
 	get_op
 
-cb38:
+cb38: @SRL,B
+	cb_srl_r8 sc0,B_reg
+	get_op
 
-cb39:
+cb39: @SRL,C
+	cb_srl_r8 sc0,C_reg
+	get_op
 
-cb3a:
+cb3a: @SRL,D
+	cb_srl_r8 sc0,D_reg
+	get_op
 
-cb3b:
+cb3b: @SRL,E
+	cb_srl_r8 sc0,E_reg
+	get_op
 
-cb3c:
+cb3c: @SRL,H
+	cb_srl_r8 sc0,H_reg
+	get_op
 
-cb3d:
+cb3d: @SRL,L
+	cb_srl_r8 sc0,L_reg
+	get_op
 
-cb3e:
+cb3e: @SRL,(HL)
 
-cb3f:
+
+cb3f: @SRL,A
+	cb_srl_r8 sc0,A_reg
+	get_op
 
 cb40: @BIT 0,B
 	cb_bit sc0,0,B_reg
 	get_op
 
-cb41:
+cb41: @BIT 0,C
+	cb_bit sc0,0,C_reg
+	get_op
 
-cb42:
+cb42: @BIT 0,D
+	cb_bit sc0,0,D_reg
+	get_op
 
-cb43:
+cb43: @BIT 0,E
+	cb_bit sc0,0,E_reg
+	get_op
 
-cb44:
+cb44: @BIT 0,H
+	cb_bit sc0,0,H_reg
+	get_op
 
-cb45:
+cb45: @BIT 0,L
+	cb_bit sc0,0,L_reg
+	get_op
 
-cb46:
+cb46: @BIT 0,(HL)
 
-cb47:
+cb47: @BIT 0,A
+	cb_bit sc0,0,A_reg
+	get_op
 
-cb48:
+cb48: @BIT 1,B
+	cb_bit sc0,1,B_reg
+	get_op
 
-cb49:
+cb49: @BIT 1,C
+	cb_bit sc0,1,C_reg
+	get_op
 
-cb4a:
+cb4a: @BIT 1,D
+	cb_bit sc0,1,D_reg
+	get_op
 
-cb4b:
+cb4b: @BIT 1,E
+	cb_bit sc0,1,E_reg
+	get_op
 
-cb4c:
+cb4c: @BIT 1,H
+	cb_bit sc0,1,H_reg
+	get_op
 
-cb4d:
+cb4d: @BIT 1,L
+	cb_bit sc0,1,L_reg
+	get_op
 
-cb4e:
+cb4e: @BIT 1,(HL)
 
-cb4f:
 
-cb50:
+cb4f: @BIT 1,A
+	cb_bit sc0,1,A_reg
+	get_op
 
-cb51:
+cb50: @BIT 2,B
+	cb_bit sc0,2,B_reg
+	get_op
 
-cb52:
+cb51: @BIT 2,C
+	cb_bit sc0,2,C_reg
+	get_op
 
-cb53:
+cb52: @BIT 2,D
+	cb_bit sc0,2,D_reg
+	get_op
 
-cb54:
+cb53: @BIT 2,E
+	cb_bit sc0,2,E_reg
+	get_op
 
-cb55:
+cb54: @BIT 2,H
+	cb_bit sc0,2,H_reg
+	get_op
 
-cb56:
+cb55: @BIT 2,L
+	cb_bit sc0,2,L_reg
+	get_op
 
-cb57:
+cb56: @BIT 2,(HL)
 
-cb58:
 
-cb59:
+cb57: @BIT 2,A
+	cb_bit sc0,2,A_reg
+	get_op
 
-cb5a:
+cb58: @BIT 3,B
+	cb_bit sc0,3,B_reg
+	get_op
 
-cb5b:
+cb59: @BIT 3,C
+	cb_bit sc0,3,C_reg
+	get_op
 
-cb5c:
+cb5a: @BIT 3,D
+	cb_bit sc0,3,D_reg
+	get_op
 
-cb5d:
+cb5b: @BIT 3,E
+	cb_bit sc0,3,E_reg
+	get_op
 
-cb5e:
+cb5c: @BIT 3,H
+	cb_bit sc0,3,H_reg
+	get_op
 
-cb5f:
+cb5d: @BIT 3,L
+	cb_bit sc0,3,L_reg
+	get_op
 
-cb60:
+cb5e: @BIT 3,(HL)
 
-cb61:
 
-cb62:
+cb5f: @BIT 3,A
+	cb_bit sc0,3,A_reg
+	get_op
 
-cb63:
+cb60: @BIT 4,B
+	cb_bit sc0,4,B_reg
+	get_op
 
-cb64:
+cb61: @BIT 4,C
+	cb_bit sc0,4,C_reg
+	get_op
 
-cb65:
+cb62: @BIT 4,D
+	cb_bit sc0,4,D_reg
+	get_op
 
-cb66:
+cb63: @BIT 4,E
+	cb_bit sc0,4,E_reg
+	get_op
 
-cb67:
+cb64: @BIT 4,H
+	cb_bit sc0,4,H_reg
+	get_op
 
-cb68:
+cb65: @BIT 4,L
+	cb_bit sc0,4,L_reg
+	get_op
 
-cb69:
+cb66: @BIT 4,(HL)
 
-cb6a:
 
-cb6b:
+cb67: @BIT 4,A
+	cb_bit sc0,4,A_reg
+	get_op
 
-cb6c:
+cb68: @BIT 5,B
+	cb_bit sc0,5,B_reg
+	get_op
 
-cb6d:
+cb69: @BIT 5,C
+	cb_bit sc0,5,C_reg
+	get_op
 
-cb6e:
+cb6a: @BIT 5,D
+	cb_bit sc0,5,D_reg
+	get_op
 
-cb6f:
+cb6b: @BIT 5,E
+	cb_bit sc0,5,E_reg
+	get_op
 
-cb70:
+cb6c: @BIT 5,H
+	cb_bit sc0,5,H_reg
+	get_op
 
-cb71:
+cb6d: @BIT 5,L
+	cb_bit sc0,5,L_reg
+	get_op
 
-cb72:
+cb6e: @BIT 5,(HL)
 
-cb73:
 
-cb74:
+cb6f: @BIT 5,A
+	cb_bit sc0,5,A_reg
+	get_op
 
-cb75:
+cb70: @BIT 6,B
+	cb_bit sc0,6,B_reg
+	get_op
 
-cb76:
+cb71: @BIT 6,C
+	cb_bit sc0,6,C_reg
+	get_op
 
-cb77:
+cb72: @BIT 6,D
+	cb_bit sc0,6,D_reg
+	get_op
 
-cb78:
+cb73: @BIT 6,E
+	cb_bit sc0,6,E_reg
+	get_op
 
-cb79:
+cb74: @BIT 6,H
+	cb_bit sc0,6,H_reg
+	get_op
 
-cb7a:
+cb75: @BIT 6,L
+	cb_bit sc0,6,L_reg
+	get_op
 
-cb7b:
+cb76: @BIT 6,(HL)
 
-cb7c:
 
-cb7d:
+cb77: @BIT 6,A
+	cb_bit sc0,6,A_reg
+	get_op
 
-cb7e:
+cb78: @BIT 7,B
+	cb_bit sc0,7,B_reg
+	get_op
 
-cb7f:
+cb79: @BIT 7,C
+	cb_bit sc0,7,C_reg
+	get_op
+
+cb7a: @BIT 7,D
+	cb_bit sc0,7,D_reg
+	get_op
+
+cb7b: @BIT 7,E
+	cb_bit sc0,7,E_reg
+	get_op
+
+cb7c: @BIT 7,H
+	cb_bit sc0,7,H_reg
+	get_op
+
+cb7d: @BIT 7,L
+	cb_bit sc0,7,L_reg
+	get_op
+
+cb7e: @BIT 7,(HL)
+
+
+cb7f: @BIT 7,A
+	cb_bit sc0,7,A_reg
+	get_op
+
 
 cb80: @RES 0,B
 	cb_reset_bit sc0,0,B_reg
 	get_op
 
+cb81: @RES 0,C
+	cb_reset_bit sc0,0,C_reg
+	get_op
 
-cb81:
+cb82: @RES 0,D
+	cb_reset_bit sc0,0,D_reg
+	get_op
 
-cb82:
+cb83: @RES 0,E
+	cb_reset_bit sc0,0,E_reg
+	get_op
 
-cb83:
+cb84: @RES 0,H
+	cb_reset_bit sc0,0,H_reg
+	get_op
 
-cb84:
+cb85: @RES 0,L
+	cb_reset_bit sc0,0,L_reg
+	get_op
 
-cb85:
+cb86: @RES 0,(HL)
 
-cb86:
 
-cb87:
+cb87: @RES 0,A
+	cb_reset_bit sc0,0,A_reg
+	get_op
 
-cb88:
+cb88: @RES 1,B
+	cb_reset_bit sc0,1,B_reg
+	get_op
 
-cb89:
+cb89: @RES 1,C
+	cb_reset_bit sc0,1,C_reg
+	get_op
 
-cb8a:
+cb8a: @RES 1,D
+	cb_reset_bit sc0,1,D_reg
+	get_op
 
-cb8b:
+cb8b: @RES 1,E
+	cb_reset_bit sc0,1,E_reg
+	get_op
 
-cb8c:
+cb8c: @RES 1,H
+	cb_reset_bit sc0,1,H_reg
+	get_op
 
-cb8d:
+cb8d: @RES 1,L
+	cb_reset_bit sc0,1,L_reg
+	get_op
 
-cb8e:
+cb8e: @RES 1,(HL)
 
-cb8f:
 
-cb90:
+cb8f: @RES 1,A
+	cb_reset_bit sc0,1,A_reg
+	get_op
 
-cb91:
+cb90: @RES 2,B
+	cb_reset_bit sc0,2,B_reg
+	get_op
 
-cb92:
+cb91: @RES 2,C
+	cb_reset_bit sc0,2,C_reg
+	get_op
 
-cb93:
+cb92: @RES 2,D
+	cb_reset_bit sc0,2,D_reg
+	get_op
 
-cb94:
+cb93: @RES 2,E
+	cb_reset_bit sc0,2,E_reg
+	get_op
 
-cb95:
+cb94: @RES 2,H
+	cb_reset_bit sc0,2,H_reg
+	get_op
 
-cb96:
+cb95: @RES 2,L
+	cb_reset_bit sc0,2,L_reg
+	get_op
 
-cb97:
+cb96: @RES 2,(HL)
 
-cb98:
 
-cb99:
+cb97: @RES 2,A
+	cb_reset_bit sc0,2,A_reg
+	get_op
 
-cb9a:
+cb98: @RES 3,B
+	cb_reset_bit sc0,3,B_reg
+	get_op
 
-cb9b:
+cb99: @RES 3,C
+	cb_reset_bit sc0,3,C_reg
+	get_op
 
-cb9c:
+cb9a: @RES 3,D
+	cb_reset_bit sc0,3,D_reg
+	get_op
 
-cb9d:
+cb9b: @RES 3,E
+	cb_reset_bit sc0,3,E_reg
+	get_op
 
-cb9e:
+cb9c: @RES 3,H
+	cb_reset_bit sc0,3,H_reg
+	get_op
 
-cb9f:
+cb9d: @RES 3,L
+	cb_reset_bit sc0,3,L_reg
+	get_op
 
-cba0:
+cb9e: @RES 3,(HL)
 
-cba1:
 
-cba2:
+cb9f: @RES 3,A
+	cb_reset_bit sc0,3,A_reg
+	get_op
 
-cba3:
+cba0: @RES 4,B
+	cb_reset_bit sc0,4,B_reg
+	get_op
 
-cba4:
+cba1: @RES 4,C
+	cb_reset_bit sc0,4,C_reg
+	get_op
 
-cba5:
+cba2: @RES 4,D
+	cb_reset_bit sc0,4,D_reg
+	get_op
 
-cba6:
+cba3: @RES 4,E
+	cb_reset_bit sc0,4,E_reg
+	get_op
 
-cba7:
+cba4: @RES 4,H
+	cb_reset_bit sc0,4,H_reg
+	get_op
 
-cba8:
+cba5: @RES 4,L
+	cb_reset_bit sc0,4,L_reg
+	get_op
 
-cba9:
+cba6: @RES 4,(HL)
 
-cbaa:
 
-cbab:
+cba7: @RES 4,A
+	cb_reset_bit sc0,4,A_reg
+	get_op
 
-cbac:
+cba8: @RES 5,B
+	cb_reset_bit sc0,5,B_reg
+	get_op
 
-cbad:
+cba9: @RES 5,C
+	cb_reset_bit sc0,5,C_reg
+	get_op
 
-cbae:
+cbaa: @RES 5,D
+	cb_reset_bit sc0,5,D_reg
+	get_op
 
-cbaf:
+cbab: @RES 5,E
+	cb_reset_bit sc0,5,E_reg
+	get_op
 
-cbb0:
+cbac: @RES 5,H
+	cb_reset_bit sc0,5,H_reg
+	get_op
 
-cbb1:
+cbad: @RES 5,L
+	cb_reset_bit sc0,5,L_reg
+	get_op
 
-cbb2:
+cbae: @RES 5,(HL)
 
-cbb3:
 
-cbb4:
+cbaf: @RES 5,A
+	cb_reset_bit sc0,5,A_reg
+	get_op
 
-cbb5:
+cbb0: @RES 6,B
+	cb_reset_bit sc0,6,B_reg
+	get_op
 
-cbb6:
+cbb1: @RES 6,C
+	cb_reset_bit sc0,6,C_reg
+	get_op
 
-cbb7:
+cbb2: @RES 6,D
+	cb_reset_bit sc0,6,D_reg
+	get_op
 
-cbb8:
+cbb3: @RES 6,E
+	cb_reset_bit sc0,6,E_reg
+	get_op
 
-cbb9:
+cbb4: @RES 6,H
+	cb_reset_bit sc0,6,H_reg
+	get_op
 
-cbba:
+cbb5: @RES 6,L
+	cb_reset_bit sc0,6,L_reg
+	get_op
 
-cbbb:
+cbb6: @RES 6,(HL)
 
-cbbc:
 
-cbbd:
+cbb7: @RES 6,A
+	cb_reset_bit sc0,6,A_reg
+	get_op
 
-cbbe:
+cbb8: @RES 7,B
+	cb_reset_bit sc0,7,B_reg
+	get_op
 
-cbbf:
+cbb9: @RES 7,C
+	cb_reset_bit sc0,7,C_reg
+	get_op
 
-cbc0:
+cbba: @RES 7,D
+	cb_reset_bit sc0,7,D_reg
+	get_op
 
-cbc1:
+cbbb: @RES 7,E
+	cb_reset_bit sc0,7,E_reg
+	get_op
 
-cbc2:
+cbbc: @RES 7,H
+	cb_reset_bit sc0,7,H_reg
+	get_op
 
-cbc3:
+cbbd: @RES 7,L
+	cb_reset_bit sc0,7,L_reg
+	get_op
 
-cbc4:
+cbbe: @RES 7,(HL)
 
-cbc5:
 
-cbc6:
+cbbf: @RES 7,A
+	cb_reset_bit sc0,7,A_reg
+	get_op
 
-cbc7:
+cbc0: @SET 0,B
+	cb_set_bit sc0,0,B_reg
+	get_op
 
-cbc8:
+cbc1: @SET 0,C
+	cb_set_bit sc0,0,C_reg
+	get_op
 
-cbc9:
+cbc2: @SET 0,D
+	cb_set_bit sc0,0,D_reg
+	get_op
 
-cbca:
+cbc3: @SET 0,E
+	cb_set_bit sc0,0,E_reg
+	get_op
 
-cbcb:
+cbc4: @SET 0,H
+	cb_set_bit sc0,0,H_reg
+	get_op
 
-cbcc:
+cbc5: @SET 0,L
+	cb_set_bit sc0,0,L_reg
+	get_op
 
-cbcd:
+cbc6: @SET 0,(HL)
 
-cbce:
 
-cbcf:
+cbc7: @SET 0,A
+	cb_set_bit sc0,0,A_reg
+	get_op
 
-cbd0:
+cbc8: @SET 1,B
+	cb_set_bit sc0,1,B_reg
+	get_op
 
-cbd1:
+cbc9: @SET 1,C
+	cb_set_bit sc0,1,C_reg
+	get_op
 
-cbd2:
+cbca: @SET 1,D
+	cb_set_bit sc0,1,D_reg
+	get_op
 
-cbd3:
+cbcb: @SET 1,E
+	cb_set_bit sc0,1,E_reg
+	get_op
 
-cbd4:
+cbcc: @SET 1,H
+	cb_set_bit sc0,1,H_reg
+	get_op
 
-cbd5:
+cbcd: @SET 1,L
+	cb_set_bit sc0,1,L_reg
+	get_op
 
-cbd6:
+cbce: @SET 1,(HL)
 
-cbd7:
 
-cbd8:
+cbcf: @SET 1,A
+	cb_set_bit sc0,1,A_reg
+	get_op
 
-cbd9:
+cbd0: @SET 2,B
+	cb_set_bit sc0,2,B_reg
+	get_op
 
-cbda:
+cbd1: @SET 2,C
+	cb_set_bit sc0,2,C_reg
+	get_op
 
-cbdb:
+cbd2: @SET 2,D
+	cb_set_bit sc0,2,D_reg
+	get_op
 
-cbdc:
+cbd3: @SET 2,E
+	cb_set_bit sc0,2,E_reg
+	get_op
 
-cbdd:
+cbd4: @SET 2,H
+	cb_set_bit sc0,2,H_reg
+	get_op
 
-cbde:
+cbd5: @SET 2,L
+	cb_set_bit sc0,2,L_reg
+	get_op
 
-cbdf:
+cbd6: @SET 2,(HL)
 
-cbe0:
 
-cbe1:
+cbd7: @SET 2,A
+	cb_set_bit sc0,2,A_reg
+	get_op
 
-cbe2:
+cbd8: @SET 3,B
+	cb_set_bit sc0,3,B_reg
+	get_op
 
-cbe3:
+cbd9: @SET 3,C
+	cb_set_bit sc0,3,C_reg
+	get_op
 
-cbe4:
+cbda: @SET 3,D
+	cb_set_bit sc0,3,D_reg
+	get_op
 
-cbe5:
+cbdb: @SET 3,E
+	cb_set_bit sc0,3,E_reg
+	get_op
 
-cbe6:
+cbdc: @SET 3,H
+	cb_set_bit sc0,3,H_reg
+	get_op
 
-cbe7:
+cbdd: @SET 3,L
+	cb_set_bit sc0,3,L_reg
+	get_op
 
-cbe8:
+cbde: @SET 3,(HL)
 
-cbe9:
 
-cbea:
+cbdf: @SET 3,A
+	cb_set_bit sc0,3,A_reg
+	get_op
 
-cbeb:
+cbe0: @SET 4,B
+	cb_set_bit sc0,4,B_reg
+	get_op
 
-cbec:
+cbe1: @SET 4,C
+	cb_set_bit sc0,4,C_reg
+	get_op
 
-cbed:
+cbe2: @SET 4,D
+	cb_set_bit sc0,4,D_reg
+	get_op
 
-cbee:
+cbe3: @SET 4,E
+	cb_set_bit sc0,4,E_reg
+	get_op
 
-cbef:
+cbe4: @SET 4,H
+	cb_set_bit sc0,4,H_reg
+	get_op
 
-cbf0:
+cbe5: @SET 4,L
+	cb_set_bit sc0,4,L_reg
+	get_op
 
-cbf1:
+cbe6: @SET 4,(HL)
 
-cbf2:
 
-cbf3:
+cbe7: @SET 4,A
+	cb_set_bit sc0,4,A_reg
+	get_op
 
-cbf4:
+cbe8: @SET 5,B
+	cb_set_bit sc0,5,B_reg
+	get_op
 
-cbf5:
+cbe9: @SET 5,C
+	cb_set_bit sc0,5,C_reg
+	get_op
 
-cbf6:
+cbea: @SET 5,D
+	cb_set_bit sc0,5,D_reg
+	get_op
 
-cbf7:
+cbeb: @SET 5,E
+	cb_set_bit sc0,5,E_reg
+	get_op
 
-cbf8:
+cbec: @SET 5,H
+	cb_set_bit sc0,5,H_reg
+	get_op
 
-cbf9:
+cbed: @SET 5,L
+	cb_set_bit sc0,5,L_reg
+	get_op
 
-cbfa:
+cbee: @SET 5,(HL)
 
-cbfb:
 
-cbfc:
+cbef: @SET 5,A
+	cb_set_bit sc0,5,A_reg
+	get_op
 
-cbfd:
+cbf0: @SET 6,B
+	cb_set_bit sc0,6,B_reg
+	get_op
 
-cbfe:
+cbf1: @SET 6,C
+	cb_set_bit sc0,6,C_reg
+	get_op
 
-cbff:
+cbf2: @SET 6,D
+	cb_set_bit sc0,6,D_reg
+	get_op
 
+cbf3: @SET 6,E
+	cb_set_bit sc0,6,E_reg
+	get_op
+
+cbf4: @SET 6,H
+	cb_set_bit sc0,6,H_reg
+	get_op
+
+cbf5: @SET 6,L
+	cb_set_bit sc0,6,L_reg
+	get_op
+
+cbf6: @SET 6,(HL)
+
+
+cbf7: @SET 6,A
+	cb_set_bit sc0,6,A_reg
+	get_op
+
+cbf8: @SET 7,B
+	cb_set_bit sc0,7,B_reg
+	get_op
+
+cbf9: @SET 7,C
+	cb_set_bit sc0,7,C_reg
+	get_op
+
+cbfa: @SET 7,D
+	cb_set_bit sc0,7,D_reg
+	get_op
+
+cbfb: @SET 7,E
+	cb_set_bit sc0,7,E_reg
+	get_op
+
+cbfc: @SET 7,H
+	cb_set_bit sc0,7,H_reg
+	get_op
+
+cbfd: @SET 7,L
+	cb_set_bit sc0,7,L_reg
+	get_op
+
+cbfe: @SET 7,(HL)
+
+
+cbff: @SET 7,A
+	cb_set_bit sc0,7,A_reg
+	get_op
 
 
 

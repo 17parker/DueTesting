@@ -130,16 +130,16 @@ sc4 .req r12
 	andne cpuflags,cflag_clear
 .endm
 
-.macro ld_reg8_d8, dstreg  @dstreg is the destination reg
+.macro ld_reg8_d8 dstreg  @dstreg is the destination reg
 	strb args,[cpuregs,\dstreg]
 .endm
 
-.macro ld_reg8_reg8, rA,dstreg,srcreg @rA is a free register
+.macro ld_reg8_reg8 rA,dstreg,srcreg @rA is a free register
 	ldrb \rA,[cpuregs,\srcreg]
 	strb \rA,[cpuregs,\dstreg]
 .endm
 
-.macro inc_reg8, rA, regname  @rA,rB are free registers, regname is the register
+.macro inc_reg8 rA, regname  @rA,rB are free registers, regname is the register
 	ldrb \rA,[cpuregs,\regname] @rA has previous value of reg
 	add \rA,1
 	strb \rA,[cpuregs,\regname]
@@ -150,7 +150,7 @@ sc4 .req r12
 	clear_nflag
 .endm
 
-.macro dec_reg8, rA,regname  @rA,rB are free registers, regname is the register
+.macro dec_reg8 rA,regname  @rA,rB are free registers, regname is the register
 	ldrb \rA,[cpuregs,\regname]
 	subs \rA,1
 	strb \rA,[cpuregs,\regname]
@@ -161,19 +161,19 @@ sc4 .req r12
 	set_nflag
 .endm
 
-.macro inc_reg16, rA,regname @rA is a free register
+.macro inc_reg16 rA,regname @rA is a free register
 	ldrh \rA,[cpuregs,\regname]
 	add \rA,\rA,1
 	strh \rA,[cpuregs,\regname]
 .endm
 
-.macro dec_reg16, rA,regname @rA is a free register
+.macro dec_reg16 rA,regname @rA is a free register
 	ldrh \rA,[cpuregs,\regname]
 	sub \rA,\rA,1
 	strh \rA,[cpuregs,\regname]
 .endm
 
-.macro add_reg8_reg8, rA,rB,rC,dstreg,srcreg @rA,rB are free registers
+.macro add_reg8_reg8 rA,rB,rC,dstreg,srcreg @rA,rB are free registers
 	ldrb \rA,[cpuregs,\dstreg]
 	ldrb \rB,[cpuregs,\srcreg]
 	mov \rC,\rA    @rC holds the pre-op value of rA
@@ -191,7 +191,7 @@ sc4 .req r12
 	clear_nflag
 .endm
 
-.macro adc_reg8_reg8, rA,rB,rC,dstreg,srcreg  @rA,rB are free registers
+.macro adc_reg8_reg8 rA,rB,rC,dstreg,srcreg  @rA,rB are free registers
 	ldrb \rA,[cpuregs,\dstreg]
 	ldrb \rB,[cpuregs,\srcreg]
 	mov \rC,\rA					@rC holds the pre-op value of rA
@@ -213,7 +213,7 @@ sc4 .req r12
 .endm
 
 @Writing specific instructions for adding reg A to reg A saves space
-.macro add_regA_regA, rA    @rA is a free register
+.macro add_regA_regA rA    @rA is a free register
 	ldrb \rA,[cpuregs,A_reg]
 	lsl \rA,2   @rA holds the post-op val
 	strb \rA,[cpuregs,A_reg]
@@ -226,7 +226,7 @@ sc4 .req r12
 	clear_nflag
 .endm
 
-.macro adc_regA_regA, rA    @rA is a free reg
+.macro adc_regA_regA rA    @rA is a free reg
 	ldrb \rA,[cpuregs,A_reg]
 	lsl \rA,2   @rA holds the post-op val
 	tst cpuflags,cflag_set
@@ -242,7 +242,7 @@ sc4 .req r12
 	clear_nflag
 .endm
 
-.macro sub_A_reg8, rA,rB,rC,regname @rA,rB,rC are free registers, regname is reg being subtracted from A
+.macro sub_A_reg8 rA,rB,rC,regname @rA,rB,rC are free registers, regname is reg being subtracted from A
 	ldrb \rA,[cpuregs,A_reg]
 	ldrb \rB,[cpuregs,\regname]
 	mov \rC,\rA
@@ -261,7 +261,7 @@ sc4 .req r12
 	set_nflag
 .endm
 
-.macro sbc_A_reg8, rA,rB,rC,regname @rA,rB,rC are free registers, regname is reg being subtracted from A
+.macro sbc_A_reg8 rA,rB,rC,regname @rA,rB,rC are free registers, regname is reg being subtracted from A
 	ldrb \rA,[cpuregs,A_reg]
 	ldrb \rB,[cpuregs,\regname]
 	mov \rC,\rA
@@ -283,7 +283,7 @@ sc4 .req r12
 	set_nflag
 .endm
 
-.macro and_A_reg8, rA,rB,regname @rA,rB are free registers
+.macro and_A_reg8 rA,rB,regname @rA,rB are free registers
 	ldrb \rA,[cpuregs,A_reg]
 	ldrb \rB,[cpuregs,\regname]
 	ands \rB,\rA,\rB
@@ -293,7 +293,7 @@ sc4 .req r12
 	movne cpuflags,0x20	  @H = 1; Z,N,C = 0
 .endm
 
-.macro add_hl_r16, offset, rA, rB, rC
+.macro add_hl_r16 offset, rA, rB, rC
 	ldrh \rA,[cpuregs,HL_reg]
 	ldrh \rB,[cpuregs,\offset]
 	@Im not doing the h flag right now
@@ -376,5 +376,29 @@ sc4 .req r12
 	it eq
 	orreq cpuflags,zflag_set
 	strb \rA,[cpuregs,\regname]
+.endm
+
+.macro cb_srl_r8 rA,regname
+
+.endm
+
+.macro cb_rrc_r8 rA,regname
+
+.endm
+
+.macro cb_rl_r8 rA,regname
+
+.endm
+
+.macro cb_rr_r8 rA,regname
+
+.endm
+
+.macro cb_sla_r8 rA,regname
+
+.endm
+
+.macro cb_sra_r8 rA,regname
+
 .endm
 
