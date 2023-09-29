@@ -323,15 +323,13 @@ sc4 .req r12
 .macro cb_rlc_r8 rA, regname @rA is free, regname is the 8-bit CPU reg
 	ldrb \rA,[cpuregs,\regname]
 	eor cpuflags,cpuflags
-	tst \rA,\rA
+	sxtb \rA,\rA				@bits 31:8 are the same as bit 7
+	rors \rA,\rA,31				@this should make new b0 same as old b7
 	ittt eq						@if reg is 0, we are done
 	orreq cpuflags,zflag_set
 	get_opeq
-	tst \rA,0x80				@check MSB, set flags as necessary
-	lsl \rA,1
-	itt ne
-	orrne \rA,1
-	orrne cpuflags,cflag_set
+	it cs						@old b8 == old b7, and old b8 was the last bit shifted through carry in APSR
+	orrcs cpuflags,cflag_set	@set carry flag if carry in APSR is set (carry flag == b7 == b8)
 	strb \rA,[cpuregs,\regname]
 .endm
 
@@ -370,7 +368,7 @@ sc4 .req r12
 @ bbbb aaaa
 .macro cb_swap_r8 rA,regname
 	ldrb \rA,[cpuregs,\regname]
-	mov cpuflags,0
+	eor cpuflags,cpuflags
 	orrs \rA,\rA,\rA, lsl 8
 	lsr \rA,4
 	it eq
@@ -379,11 +377,26 @@ sc4 .req r12
 .endm
 
 .macro cb_srl_r8 rA,regname
-
+	ldrb \rA,[cpuregs,\regname]
+	eor cpuflags,cpuflags
+	lsrs \rA,\rA,1
+	it cs						@old bit 0 is moved to carry flag in APSR
+	orrcs cpuflags,cflag_set
+	it eq
+	orreq cpuflags,zflag_set
+	strb \rA,[cpuregs,\regname]
 .endm
 
 .macro cb_rrc_r8 rA,regname
-
+	ldrb \rA,[cpuregs,\regname]
+	eor cpuflags,cpuflags
+	lsrs \rA,\rA,1			
+	itt cs
+	orrcs cpuflags,cflag_set
+	orrcs \rA,\rA,0x80
+	it eq
+	orreq cpuflags,zflag_set
+	strb \rA,[cpuregs,\regname]
 .endm
 
 .macro cb_rl_r8 rA,regname
@@ -399,6 +412,16 @@ sc4 .req r12
 .endm
 
 .macro cb_sra_r8 rA,regname
-
+	ldrb \rA,[cpuregs,\regname]
+	eor cpuflags,cpuflags
+	lsrs \rA,\rA,1					@moves old bit 0 to carry flag in APSR
+	it cs							@carry flag = old b0
+	orrcs cpuflags,cflag_set
+	it eq							@z flag if 0
+	orreq cpuflags,zflag_set
+	tst \rA,0x40					@check if old bit 7 was set, set new bit 7 if true
+	it ne							@b7 = old b7
+	orrne \rA,\rA,0x80
+	strb \rA,[cpuregs,\regname]
 .endm
 
