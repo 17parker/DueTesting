@@ -325,7 +325,7 @@ sc4 .req r12
 	eor cpuflags,cpuflags
 	sxtb \rA,\rA				@bits 31:8 are the same as bit 7
 	rors \rA,\rA,31				@this should make new b0 same as old b7
-	ittt eq						@if reg is 0, we are done
+	ittt eq						@if reg is 0, set z flag and then we are done
 	orreq cpuflags,zflag_set
 	get_opeq
 	it cs						@old b8 == old b7, and old b8 was the last bit shifted through carry in APSR
