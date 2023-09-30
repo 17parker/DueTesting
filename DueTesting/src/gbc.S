@@ -1,8 +1,8 @@
 .syntax unified
 
 
-#define debug_bkpts				@This puts bkpt in get_op
-@#define debug_mem_catch
+@#define debug_bkpts				@This puts bkpt in get_op
+
 .include "src/gbc_funcs.inc"
 
 IER_write:
@@ -27,7 +27,7 @@ OAM_read:
 	@needs catch
 .endm
 
-.macro ld_ra16_d8, offset, data, rA, rB @load into (ra16) the data d8
+.macro ld_ra16_d8 offset, data, rA, rB @load into (ra16) the data d8
 #ifdef debug_mem_catch
 	mov sc4,0xff
 #endif
@@ -147,7 +147,7 @@ wram0: .space 0x1000
 vram0: .space 0x2000
 vram1: .space 0x2000 
 wram1: .space 0x1000 
-extram: .word =0x61000000
+extram: .word =0x6100a000
 vramn: .word vram0
 wramn: .word wram1
 wram2: .space 0x1000
@@ -750,6 +750,7 @@ gbc:
 	strb r8,[r0,0x41]
 	mov r8,0x80
 	strb r8,[cpuregs,F_reg]
+	bkpt 50
 	get_op
 
 x00: @NOP
@@ -985,7 +986,61 @@ x35: @DEC (HL)
 	 
 x36: @LD (HL),d8
 	get_1_arg
-	ld_ra16_d8 HL_reg,args,sc0,sc1
+	mov sc3,args			  @sc3 holds the data
+	ldrh sc1,[cpuregs,HL_reg] @sc1 holds the 16-bit address
+	add sc0,sc1,1			  @sc0 holds (16-bit addr + 1)
+	tst sc0,0x10000			  @check for IER
+	bne IER_write36
+	mov sc0,0xfe00
+	subs sc0,sc1,sc0		  @check if in lower memory space
+	bmi lower36					  @pass rA to lower
+	mov sc1,0x100
+	subs sc1,sc0,sc1		  @check if in OAM
+	bmi OAM_write36				  @pass RB to OAM
+	subs sc0,sc1,0x80		  @check if in IO
+	bmi IO_write36				  @pass RA to IO
+	ldr sc0,=hram			  @it is in HRAM
+	strb sc3,[sc0,sc1]		  @store RB in HRAM
+	get_op
+
+IER_write36:
+	@sc3 has value writing to IER
+	get_op
+
+OAM_write36:
+	@sc0 has low 8 bits of address
+	get_op
+
+IO_write36:
+	@sc0 has low 8 bits of address
+	get_op
+
+lower36: @sc1 holds the 16-bit address
+	mov sc0,0x8000
+	subs sc0,sc1,sc0				@check if in cart
+	ittt mi
+	strbmi sc3,[cartaddr,sc1]
+	get_opmi
+	mov sc1,0x2000
+	subs sc1,sc0,sc1				@check if in vram
+	itttt mi
+	ldrmi sc1,=vramn
+	strbmi sc3,[sc1,sc0]
+	get_opmi
+	mov sc0,0x2000
+	subs sc0,sc1,sc0				@check if in extram
+	itttt mi
+	ldrmi sc0,=extram
+	strbmi sc3,[sc0,sc1]
+	get_opmi
+	mov sc1,0x1000
+	subs sc1,sc0,sc1				@check if in wram0
+	itttt mi
+	ldrmi sc1,=wram0
+	strbmi sc3,[sc1,sc0]
+	get_opmi
+	ldr sc0,=wramn					@it is in wramn
+	strb sc3,[sc0,sc1]				@the last get_op is outside the macro so the breakpoint in get_op is hit
 	get_op
 
 x37: @SCF
@@ -1042,7 +1097,7 @@ x45: @LD B,L
 	get_op
 	 
 x46: @LD B,(HL)
-
+	get_op
 	 
 x47: @LD B,A
 	ld_reg8_reg8 sc0,B_reg,A_reg
@@ -1248,9 +1303,64 @@ x76: @HALT - clock stopped, oscillator and lcd controller keep going. cancelled 
 .ltorg
 
 x77: @LD (HL),A
-	ldrb sc0,[cpuregs,A_reg]
-	ld_ra16_d8 HL_reg,sc0,sc1,sc2
+	ldrb sc3,[cpuregs,A_reg]  @sc3 holds the data
+	ldrh sc1,[cpuregs,HL_reg] @sc1 holds the 16-bit address
+	add sc0,sc1,1			  @sc0 holds (16-bit addr + 1)
+	tst sc0,0x10000			  @check for IER
+	bne IER_write77
+	mov sc0,0xfe00
+	subs sc0,sc1,sc0		  @check if in lower memory space
+	bmi lower77					  @pass rA to lower
+	mov sc1,0x100
+	subs sc1,sc0,sc1		  @check if in OAM
+	bmi OAM_write77				  @pass RB to OAM
+	subs sc0,sc1,0x80		  @check if in IO
+	bmi IO_write77				  @pass RA to IO
+	ldr sc0,=hram			  @it is in HRAM
+	strb sc3,[sc0,sc1]		  @store RB in HRAM
 	get_op
+
+IER_write77:
+	@sc3 has value writing to IER
+	get_op
+
+OAM_write77:
+	@sc0 has low 8 bits of address
+	get_op
+
+IO_write77:
+	@sc0 has low 8 bits of address
+	get_op
+
+lower77: @sc1 holds the 16-bit address
+	mov sc0,0x8000
+	subs sc0,sc1,sc0				@check if in cart
+	ittt mi
+	strbmi sc3,[cartaddr,sc1]
+	get_opmi
+	mov sc1,0x2000
+	subs sc1,sc0,sc1				@check if in vram
+	itttt mi
+	ldrmi sc1,=vramn
+	strbmi sc3,[sc1,sc0]
+	get_opmi
+	mov sc0,0x2000
+	ldr sc4,=0x61000000					@I have to move this out of the block
+	@ldr sc4,[sc4]					@IT can only have 4 conditions, I need 5
+	subs sc0,sc1,sc0				@check if in extram
+	ittt mi
+	strbmi sc3,[sc4,sc1]
+	get_opmi
+	mov sc1,0x1000
+	subs sc1,sc0,sc1				@check if in wram0
+	itttt mi
+	ldrmi sc1,=wram0
+	strbmi sc3,[sc1,sc0]
+	get_opmi
+	ldr sc0,=wramn					@it is in wramn
+	strb sc3,[sc0,sc1]				@the last get_op is outside the macro so the breakpoint in get_op is hit
+	get_op
+
 
 .ltorg
 	 

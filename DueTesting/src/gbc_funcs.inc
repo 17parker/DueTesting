@@ -19,9 +19,6 @@ sc4 .req r12
 
 .macro get_op
 	ldrb gbc_op,[progc],1
-#ifdef debug_bkpts
-	bkpt 17
-#endif
 	ldr pc,[xlbl_addr,gbc_op,lsl 2]
 .endm
 
