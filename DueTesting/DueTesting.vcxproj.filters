@@ -24,6 +24,9 @@
     <None Include="src\gbc_funcs.inc">
       <Filter>Source Files</Filter>
     </None>
+    <None Include="SAM_DUE.Debug.debugger_launch.json">
+      <Filter>Misc Files</Filter>
+    </None>
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="DueTesting.ino" />
@@ -32,5 +35,10 @@
     <ClInclude Include="__vm\.DueTesting.vsarduino.h">
       <Filter>Header Files</Filter>
     </ClInclude>
+  </ItemGroup>
+  <ItemGroup>
+    <Text Include="board.txt">
+      <Filter>Misc Files</Filter>
+    </Text>
   </ItemGroup>
 </Project>

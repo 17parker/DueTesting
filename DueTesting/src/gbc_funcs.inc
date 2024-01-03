@@ -17,11 +17,6 @@ sc2 .req r8
 sc3 .req r9
 sc4 .req r12
 
-.macro get_op
-	ldrb gbc_op,[progc],1
-	ldr pc,[xlbl_addr,gbc_op,lsl 2]
-.endm
-
 .macro get_opmi
 	ldrbmi gbc_op,[progc],1
 	ldrmi pc,[xlbl_addr,gbc_op,lsl 2]
@@ -108,6 +103,7 @@ sc4 .req r12
 
 @@@@@@@@@@@@@ NOTES @@@@@@@@@@@@@@
 @Only when a number is added to itself, the hflag can be checked by testing the result with 0x10
+
 
 .macro set_z_eq
 	ite eq
