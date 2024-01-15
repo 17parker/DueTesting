@@ -3,19 +3,24 @@
 
 .text
 
+@ NOTES:
+@ r0, r5, r12 are scratch registers
+@ r1, r2, r3, r6, r7, r8, r9, r10, r11 are required/reserved
+@ current op register (r6) can be re-used as a scratch register after the op is read
 progc .req r1
 stackptr .req r2
 cpuregs .req r3
 args .req r4
 gbc_op .req r6
 cpuflags .req r7
+mem_catch_read_routines .req r8
+mem_catch_write_routines .req r9
 cartaddr .req r10
 xlbl_addr .req r11
 sc0 .req r0
 sc1 .req r5
-sc2 .req r8
-sc3 .req r9
-sc4 .req r12
+sc3 .req gbc_op @ CLOBBERED WITH CURRENT OP REGISTER
+sc2 .req r12
 
 .macro get_opmi
 	ldrbmi gbc_op,[progc],1
@@ -32,6 +37,7 @@ sc4 .req r12
 	ldreq pc,[xlbl_addr,gbc_op,lsl 2]
 .endm
 
+@@@ CPU FLAGS MACROS
 .equ zflag_clear, 0x7f
 .equ zflag_set, 0x80
 .equ nflag_clear, 0xbf
@@ -40,6 +46,8 @@ sc4 .req r12
 .equ hflag_set, 0x20
 .equ cflag_clear, 0xef
 .equ cflag_set, 0x10
+
+@@@ CPU REGS MACROS
 .equ A_reg, 7
 .equ B_reg, 1
 .equ C_reg, 0

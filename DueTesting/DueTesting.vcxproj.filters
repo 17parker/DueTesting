@@ -21,7 +21,7 @@
     <None Include="src\gbc.S">
       <Filter>Source Files</Filter>
     </None>
-    <None Include="src\gbc_funcs.inc">
+    <None Include="src\gbc_funcs.S">
       <Filter>Source Files</Filter>
     </None>
     <None Include="SAM_DUE.Debug.debugger_launch.json">

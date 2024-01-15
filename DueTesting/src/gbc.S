@@ -1,11 +1,9 @@
 .syntax unified
 
-
 #define debug_bkpts				@ this puts bkpt in get_op
 @#define debug_mem_catch			@ this jumps exection to routine before continuing execution (not implemented)
 @#define debug_ld_A_rr				@ this puts known value into sc4 when exiting ld_A_rr
 @#define debug_ld_ra16_d8			@ this puts known value into sc4 when exiting ld_ra16_d8
-
 
 @ this needs to be in this file for the preprocessor directives to work, I think?
 #ifdef debug_bkpts
@@ -21,7 +19,7 @@
 .endm
 #endif
 
-.include "src/gbc_funcs.inc"
+.include "src/gbc_funcs.S"
 
 IER_write:
 	get_op
@@ -183,7 +181,7 @@ wram7: .space 0x1000
 
 cpu_regs_addr: .space 20
 @NOTE: because my CPU flags are in a register, the F register here is never updated
-@C B BC E D DE L H HL F A AF  WRAM0_addr WRAMn_addr VRAMn_addr scratch_reg
+@C B BC E D DE L H HL F A AF  WRAM0      WRAMn      VRAMn      scratch_reg
 @Reg order:
 @0 1 0  2 3 2  4 5 4  6 7 6   8          12			16		   20
 
@@ -191,6 +189,11 @@ cpu_regs_addr: .space 20
 .data
 
 .text
+
+#define wram0_addr [cpuregs,wram0_reg]
+#define wramn_addr [cpuregs,wramn_reg]
+#define vramn_addr [cpuregs,vramn_reg]
+
 
 .align 4
 cart_read:
@@ -218,18 +221,22 @@ extram_write:
 
 .align 4
 wram0_read:
+	ldr sc2,wram0_addr
 	get_op
 
 .align 4
 wram0_write:
+	ldr sc2,wram0_addr
 	get_op
 
 .align 4
 wramn_read:
+	ldr sc2,wramn_addr
 	get_op
 
 .align 4
 wramn_write:
+	ldr sc2,wramn_addr
 	get_op
 
 .align 4
@@ -288,8 +295,8 @@ vrambanks:
 	.word vram1
 
 .align 4
-lower_mem_catch_routines:
-lower_mem_catch_read_routines:
+mem_catch_read_table:
+lower_mem_catch_read_table:
 	.word cart_read + 1
 	.word cart_read + 1
 	.word cart_read + 1
@@ -307,9 +314,15 @@ lower_mem_catch_read_routines:
 	.word echo_read + 1
 	.word echo_read + 1
 	.word ier_read + 1
+upper_mem_catch_read_table:
+	.word oam_read + 1
+	.word oam_read + 1
+	.word io_read + 1
+	.word hlram_read + 1
 
 .align 4
-lower_mem_catch_write_routines:
+mem_catch_write_table:
+lower_mem_catch_write_table:
 	.word cart_write + 1
 	.word cart_write + 1
 	.word cart_write + 1
@@ -327,17 +340,7 @@ lower_mem_catch_write_routines:
 	.word echo_write + 1
 	.word echo_write + 1
 	.word ier_write + 1
-
-.align 4
-upper_mem_catch_routines:
-upper_mem_catch_read_routines:
-	.word oam_read + 1
-	.word oam_read + 1
-	.word io_read + 1
-	.word hlram_read + 1
-
-.align 4
-upper_mem_catch_write_routines:
+upper_mem_catch_write_table:
 	.word oam_write + 1
 	.word oam_write + 1
 	.word io_write + 1
@@ -890,11 +893,11 @@ gbc:
 	mov sc1,0							@r5 - working reg
 	mov gbc_op,0						@r6 - holds current OP
 	mov cpuflags,0						@r7 - cpu flags: 0bZNHCxxxx
-	mov sc2,0							@r8 - working reg
-	mov sc3,0							@r9 - working reg
+	ldr mem_catch_read_routines,=mem_catch_read_table			@r8 - mem catch read routines
+	ldr mem_catch_write_routines,=mem_catch_write_table			@r9 - mem catch write routines
 	ldr cartaddr,=0x60000000			@r10 - holds cartridge base address
 	ldr xlbl_addr,=x_lbl				@r11 - holds x jump table base address
-	mov sc4,0							@r12 - working reg
+	mov sc2,0							@r12 - working reg
 
 	ldr r0,=vram0
 	str r0,[cpuregs,vramn_reg]
@@ -1173,46 +1176,6 @@ x2f: @CPL - USED FOR TIMING TESTS
 	nop
 	bkpt 100
 	nop
-	ldr sc1,=x2e
-	ldr sc1,=x2e
-	ldr sc1,=x2e
-	ldr sc1,=x2e
-	strh sc3,[cpuregs,HL_reg]
-	strh sc3,[cpuregs,HL_reg]
-	strh sc3,[cpuregs,HL_reg]
-	strh sc3,[cpuregs,HL_reg]
-	ldr sc1,=x2e
-	strh sc3,[cpuregs,HL_reg]
-	ldr sc1,=x2e
-	strh sc3,[cpuregs,HL_reg]
-	ldr sc1,=x2e
-	strh sc3,[cpuregs,HL_reg]
-	ldr sc1,=x2e
-	strh sc3,[cpuregs,HL_reg]
-	ldr sc1,=x2e
-	strh sc3,[cpuregs,HL_reg]
-	mov sc3,0xab
-	mov sc4,0xcd
-	ubfx sc3,sc3,5,3
-	ubfx sc4,sc4,2,3
-	adds sc3,sc4
-	adds sc3,sc4
-	adds sc3,sc4
-	adds sc3,sc4
-	adds sc3,sc4
-	adds sc3,sc3,sc4, lsl 2
-	adds sc3,sc3,sc4, lsl 2
-	adds sc3,sc3,sc4, lsl 2
-	adds sc3,sc3,sc4, lsl 2
-	adds sc3,sc3,sc4, lsl 31
-	adds sc3,sc4
-	adds sc3,sc4
-	adds sc3,sc4
-	ittee mi
-	ldrmi sc1,=t1
-	ldrmi sc1,=t1
-	ldrpl sc1,=t2
-	ldrpl sc1,=t2
 	bkpt 101
 	 
 .align 4
@@ -1678,11 +1641,11 @@ lower77: @sc1 holds the 16-bit address
 	strbmi sc2,[sc1,sc0]
 	get_opmi
 	mov sc0,0x2000
-	ldr sc4,=0x61000000					@I have to move this out of the block
-	@ldr sc4,[sc4]					@IT can only have 4 conditions, I need 5
+	ldr sc3,=0x61000000				@I have to move this out of the block
+	@ldr sc3,[sc3]					@IT can only have 4 conditions, I need 5
 	subs sc0,sc1,sc0				@check if in extram
 	ittt mi
-	strbmi sc2,[sc4,sc1]
+	strbmi sc2,[args,sc1]
 	get_opmi
 	mov sc1,0x1000
 	subs sc1,sc0,sc1				@check if in wram0
