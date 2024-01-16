@@ -141,7 +141,7 @@ sc2 .req r12
 	strb sc0,[cpuregs,\dstreg]
 .endm
 
-.macro inc_reg8 regname
+.macro INC_reg8 regname
 	ldrb sc0,[cpuregs,\regname] @ sc0 has previous value of reg
 	add sc0,1
 	strb sc0,[cpuregs,\regname]
@@ -152,7 +152,7 @@ sc2 .req r12
 	clear_nflag
 .endm
 
-.macro dec_reg8 regname
+.macro DEC_reg8 regname
 	ldrb sc0,[cpuregs,\regname]
 	subs sc0,1
 	strb sc0,[cpuregs,\regname]
@@ -163,19 +163,21 @@ sc2 .req r12
 	set_nflag
 .endm
 
-.macro inc_reg16 regname
-	ldrh sc0,[cpuregs,\regname]
-	add sc0,1
-	strh sc0,[cpuregs,\regname]
+@ NEEDS TO BE sc3 BECAUSE OF THE (HL+) LIKE INSTRUCTIONS
+.macro INC_reg16 regname
+	ldrh sc3,[cpuregs,\regname]
+	add sc3,1
+	strh sc3,[cpuregs,\regname]
 .endm
 
-.macro dec_reg16 regname
-	ldrh sc0,[cpuregs,\regname]
-	sub sc0,1
-	strh sc0,[cpuregs,\regname]
+@ NEEDS TO BE sc3 BECAUSE OF THE (HL-) LIKE INSTRUCTIONS
+.macro DEC_reg16 regname
+	ldrh sc3,[cpuregs,\regname]
+	sub sc3,1
+	strh sc3,[cpuregs,\regname]
 .endm
 
-.macro add_reg8_reg8 dstreg,srcreg
+.macro ADD_reg_reg dstreg,srcreg
 	ldrb sc0,[cpuregs,\dstreg]
 	ldrb sc1,[cpuregs,\srcreg]
 	mov sc2,sc0					@ sc2 holds the pre-op value of rA
@@ -193,7 +195,7 @@ sc2 .req r12
 	clear_nflag
 .endm
 
-.macro adc_reg8_reg8 dstreg,srcreg 
+.macro ADC_reg_reg dstreg,srcreg 
 	ldrb sc0,[cpuregs,\dstreg]
 	ldrb sc1,[cpuregs,\srcreg]
 	mov sc2,sc0					@ sc2 holds the pre-op value of sc0
@@ -215,7 +217,7 @@ sc2 .req r12
 .endm
 
 @Writing specific instructions for adding reg A to reg A saves space
-.macro add_regA_regA		
+.macro ADD_regA		
 	ldrb sc0,[cpuregs,A_reg]
 	lsl sc0,2					
 	strb sc0,[cpuregs,A_reg]
@@ -228,7 +230,7 @@ sc2 .req r12
 	clear_nflag
 .endm
 
-.macro adc_regA_regA
+.macro ADC_regA
 	ldrb sc0,[cpuregs,A_reg]
 	lsl sc0,2   
 	tst cpuflags,cflag_set
@@ -244,7 +246,7 @@ sc2 .req r12
 	clear_nflag
 .endm
 
-.macro sub_A_reg8 regname			@ regname is reg being subtracted from A
+.macro SUB_reg regname			@ regname is reg being subtracted from A
 	ldrb sc0,[cpuregs,A_reg]
 	ldrb sc1,[cpuregs,\regname]
 	mov sc2,sc0
@@ -263,7 +265,7 @@ sc2 .req r12
 	set_nflag
 .endm
 
-.macro sbc_A_reg8 regname @ regname is reg being subtracted from A
+.macro SBC_reg regname @ regname is reg being subtracted from A
 	ldrb sc0,[cpuregs,A_reg]
 	ldrb sc1,[cpuregs,\regname]
 	mov sc2,sc0
@@ -285,7 +287,7 @@ sc2 .req r12
 	set_nflag
 .endm
 
-.macro and_A_reg8 regname
+.macro AND_reg regname
 	ldrb sc0,[cpuregs,A_reg]
 	ldrb sc1,[cpuregs,\regname]
 	ands sc1,sc0,sc1
@@ -293,6 +295,14 @@ sc2 .req r12
 	ite eq
 	moveq cpuflags,0xa0			@ Z,H = 1; N,C = 0
 	movne cpuflags,0x20			@ H = 1; Z,N,C = 0
+.endm
+
+.macro OR_reg regname @ Z conditionally set, nhc cleared
+
+.endm
+
+.macro XOR_reg regname @ Z conditionally set, nhc cleared
+
 .endm
 
 .macro add_hl_r16 offset
@@ -303,7 +313,7 @@ sc2 .req r12
 .endm
 
 
-.macro cp_A_reg8 regname
+.macro CP_reg regname
 	ldrb sc0,[cpuregs,A_reg]
 	ldrb sc1,[cpuregs,\regname]
 	cmp sc0,sc1
