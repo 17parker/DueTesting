@@ -1,11 +1,12 @@
 .syntax unified
 
-#define debug_bkpts				@ this puts bkpt in get_op
+#define debug_bkpts					@ this puts bkpt in get_op
+#define debug_mem_catch_jmp_tbl		@ this puts bkpt in the read/write jump tables
 @#define debug_mem_catch			@ this jumps exection to routine before continuing execution (not implemented)
 @#define debug_ld_A_rr				@ this puts known value into sc4 when exiting ld_A_rr
-@#define debug_ld_ra16_d8			@ this puts known value into sc4 when exiting ld_ra16_d8
+@#define debug_ld_ra16_d8			@ this puts known value into sc4 when exiting @ld_ra16_d8
 
-@ this needs to be in this file for the preprocessor directives to work, I think?
+@ this needs to be in this file, otherwise I get an "already defined" error
 #ifdef debug_bkpts
 .macro get_op
 	ldrb gbc_op,[progc],1
@@ -20,141 +21,6 @@
 #endif
 
 .include "src/gbc_funcs.S"
-
-IER_write:
-	get_op
-
-IO_write:
-	get_op
-
-IER_read:
-	get_op
-
-IO_read:
-	get_op
-
-OAM_write:
-	get_op
-
-OAM_read:
-	get_op
-
-.macro ld_A_rr offset, rA, rB
-#ifdef debug_ld_A_rr
-	mov sc4,0xff
-#else
-#endif
-
-.endm
-
-.macro ld_ra16_d8 offset, data, rA, rB @load into (ra16) the data d8
-#ifdef debug_ld_ra16_d8
-	mov sc4,0xff
-#endif
-	ldrh \rA,[cpuregs,\offset] @rA holds the 16-bit address
-	add \rB,\rA,1
-	tst \rB,0x10000			@check for IER
-	bne IER_write\@
-	subs \rB,\rA,0xFE00		@check if in lower memory space
-	blt lower\@					@pass rA to lower
-	subs \rA,\rB,0x100		@check if in OAM
-	blt OAM_write\@				@pass RB to OAM
-	subs \rB,\rA,0x80		@check if in IO
-	blt IO_write\@				@pass RA to IO
-	ldr \rB,=hram			@it is in HRAM
-#ifdef debug_mem_catch
-	mov sc4,0
-	b exit_ra16_d8\@
-#else
-	strb \data,[\rB,\rA]	@store RB in HRAM
-	get_op
-#endif
-
-IER_write\@:
-	@\data has value writing to IER
-#ifdef debug_mem_catch
-	mov sc4,0x1
-	b exit_ra16_d8\@
-#else
-	get_op
-#endif
-
-
-OAM_write\@:
-	@\rB has low 8 bits of address
-#ifdef debug_mem_catch
-	mov sc4,0x2
-	b exit_ra16_d8\@
-#else
-	get_op
-#endif
-
-
-IO_write\@:
-	@\rB has low 8 bits of address
-#ifdef debug_mem_catch
-	mov sc4,0x3
-	b exit_ra16_d8\@
-#else
-	get_op
-#endif
-
-lower\@: @\rA holds the 16-bit address
-	subs \rB,\rA,0x8000				@check if in cart
-#ifdef debug_mem_catch
-	mov sc4,0x4
-	blt exit_ra16_d8\@
-#else
-	ittt lt
-	strblt \data,[cartaddr,\rA]
-	get_oplt
-#endif
-	subs \rA,\rB,0x2000				@check if in vram
-#ifdef debug_mem_catch
-	mov sc4,0x5
-	blt exit_ra16_d8\@
-#else
-	itttt lt
-	ldrlt \rA,=vramn
-	strblt \data,[\rA,\rB]
-	get_oplt
-#endif
-	subs \rB,\rA,0x2000				@check if in extram
-#ifdef debug_mem_catch
-	mov sc4,0x6
-	blt exit_ra16_d8\@
-#else
-	itttt lt
-	ldrlt \rB,=extram
-	strblt \data,[\rB,\rA]
-	get_oplt
-#endif
-	subs \rA,\rB,0x1000				@check if in wram0
-#ifdef debug_mem_catch
-	mov sc4,0x7
-	blt exit_ra16_d8\@
-#else
-	itttt lt
-	ldrlt \rA,=wram0
-	strblt \data,[\rA,\rB]
-	get_oplt
-#endif
-#ifdef debug_mem_catch				
-	mov sc4,0x8						@it is in wramn
-	b exit_ra16_d8\@
-#else
-	ldr \rB,=wramn
-	strb \data,[\rB,\rA]			@the last get_op is outside the macro so the breakpoint in get_op is hit
-#endif
-#ifdef debug_mem_catch
-exit_ra16_d8\@:
-#endif
-.endm
-
-.macro ld_rr_nn cpu_offset,rdata @load into 16-bit register rr the immediate data
-	strh \rdata,[cpuregs,\cpu_offset]
-.endm
-
 
 .bss
 oam: .space 160,0
@@ -185,7 +51,6 @@ cpu_regs_addr: .space 20
 @Reg order:
 @0 1 0  2 3 2  4 5 4  6 7 6   8          12			16		   20
 
-
 .data
 
 .text
@@ -194,9 +59,26 @@ cpu_regs_addr: .space 20
 #define wramn_addr [cpuregs,wramn_reg]
 #define vramn_addr [cpuregs,vramn_reg]
 
+@@@ NOTES @@@
+@@@ parameters: address and destination to be set by the caller
+@@@ returns: nothing
+
+#define ld_8bit_to_reg_addr args
+#define ld_8bit_to_reg_regO sc0
+#define ld_8bit_to_reg_sc sc1
 
 .align 4
 cart_read:
+#ifdef debug_mem_catch_jmp_tbl
+	nop
+	bkpt 45
+#endif
+	ldrb ld_8bit_to_reg_sc,[cartaddr,ld_8bit_to_reg_addr]	@ load from cart
+	strb ld_8bit_to_reg_sc,[cpuregs,ld_8bit_to_reg_regO]	@ store to dst
+#ifdef debug_mem_catch_jmp_tbl
+	bkpt 46
+	nop
+#endif
 	get_op
 
 .align 4
@@ -221,17 +103,40 @@ extram_write:
 
 .align 4
 wram0_read:
-	ldr sc2,wram0_addr
+#ifdef debug_mem_catch_jmp_tbl
+	nop
+	bkpt 55
+#endif
+	ldr sc2,wram0_addr				@ get the base address for wram0
+	sub ld_8bit_to_reg_addr,0xc000	@ make the address 0-based
+	ldr ld_8bit_to_reg_sc,[sc2,ld_8bit_to_reg_addr]			@ load the data
+	str ld_8bit_to_reg_sc,[cpuregs,ld_8bit_to_reg_regO]		@ store in destination
+#ifdef debug_mem_catch_jmp_tbl
+	bkpt 56
+	nop
+#endif
 	get_op
 
 .align 4
 wram0_write:
-	ldr sc2,wram0_addr
+	ldr sc2,wram0_addr				@ get the base address for wram0
+	sub ld_8bit_to_reg_addr,0xc000	@ make the address 0-based
 	get_op
 
 .align 4
 wramn_read:
-	ldr sc2,wramn_addr
+#ifdef debug_mem_catch_jmp_tbl
+	nop
+	bkpt 65
+#endif
+	ldr sc2,wramn_addr				@ get the base address for wram0
+	sub ld_8bit_to_reg_addr,0xd000	@ make the address 0-based
+	ldr ld_8bit_to_reg_sc,[sc2,ld_8bit_to_reg_addr]			@ load the data
+	str ld_8bit_to_reg_sc,[cpuregs,ld_8bit_to_reg_regO]		@ store in destination
+#ifdef debug_mem_catch_jmp_tbl
+	bkpt 66
+	nop
+#endif
 	get_op
 
 .align 4
@@ -280,6 +185,33 @@ hlram_write:
 	get_op
 
 
+@@@@@@@@ MEM CATCH MACROS @@@@@@@@
+
+@ load 8 bits from address into an 8-bit cpu register
+.macro ld_8bit_to_reg
+	@ check if read is from ier
+	add ld_8bit_to_reg_sc,ld_8bit_to_reg_addr,1
+	tst ld_8bit_to_reg_sc,0x10000
+	it ne
+	ldrne pc,[mem_catch_read_reg,20 * 4]
+
+	@ check if read is from upper
+	cmp ld_8bit_to_reg_addr,0xfe00
+	ittt pl
+	ubfxpl ld_8bit_to_reg_sc,ld_8bit_to_reg_addr,7,2	@ get the offset into the upper table
+	addpl ld_8bit_to_reg_sc,16							@ add 16 to the offset
+	ldrpl pc,[mem_catch_read_reg,ld_8bit_to_reg_sc,lsl 2] @ make the jump
+
+	@ read is from lower
+	lsr ld_8bit_to_reg_sc,ld_8bit_to_reg_addr,12				@ get the offset into the jump table
+	ldr pc,[mem_catch_read_reg,ld_8bit_to_reg_sc,lsl 2]	@ make the jump
+.endm
+
+@ store into 16-bit address 8-bits of data
+.macro ld_ra16_d8
+
+.endm
+
 .align 4
 wrambanks:
 	.word wram0
@@ -307,18 +239,19 @@ lower_mem_catch_read_table:
 	.word cart_read + 1
 	.word vram_read + 1
 	.word vram_read + 1
-	.word extram_read + 1
+	.word extram_read + 1	@ index 10
 	.word extram_read + 1
 	.word wram0_read + 1
 	.word wramn_read + 1
 	.word echo_read + 1
-	.word echo_read + 1
-	.word ier_read + 1
+	.word echo_read + 1		@ index 15
 upper_mem_catch_read_table:
-	.word oam_read + 1
+	.word oam_read + 1		@ index 16
 	.word oam_read + 1
 	.word io_read + 1
 	.word hlram_read + 1
+	.word ier_read + 1		@ index 20
+
 
 .align 4
 mem_catch_write_table:
@@ -893,8 +826,8 @@ gbc:
 	mov sc1,0							@r5 - working reg
 	mov gbc_op,0						@r6 - holds current OP
 	mov cpuflags,0						@r7 - cpu flags: 0bZNHCxxxx
-	ldr mem_catch_read_routines,=mem_catch_read_table			@r8 - mem catch read routines
-	ldr mem_catch_write_routines,=mem_catch_write_table			@r9 - mem catch write routines
+	ldr mem_catch_read_reg,=mem_catch_read_table		@r8 - mem catch read routines
+	ldr mem_catch_write_reg,=mem_catch_write_table		@r9 - mem catch write routines
 	ldr cartaddr,=0x60000000			@r10 - holds cartridge base address
 	ldr xlbl_addr,=x_lbl				@r11 - holds x jump table base address
 	mov sc2,0							@r12 - working reg
@@ -927,31 +860,31 @@ x00: @NOP
 .align 4
 x01: @LD BC,d16 - no flags
 	get_2_arg
-	ld_rr_nn BC_reg,args
+	strh args,[cpuregs,BC_reg]
 	get_op
 
 .align 4
 x02: @LD (BC),A - Load to the absolute address (BC), data from the 8-bit A register
 	ldrb sc0,[cpuregs,A_reg]  @sc0 holds the data from A_reg
-	ld_ra16_d8 BC_reg, sc0,sc1,sc2
+	@ld_ra16_d8 BC_reg, sc0,sc1,sc2
 	get_op
 
 
 .align 4
 x03: @INC BC - no flags
-	inc_reg16 sc0,BC_reg
+	inc_reg16 BC_reg
 	get_op
 
 .ltorg
 
 .align 4
 x04: @INC B - z if result is 0, N is reset, H if carry from bit 3
-	inc_reg8 sc0,B_reg
+	inc_reg8 B_reg
 	get_op
 
 .align 4
 x05: @DEC B - z if result is 0, N is set, H is set if borrow from bit 4
-	dec_reg8 sc0,B_reg
+	dec_reg8 B_reg
 	get_op
 
 .align 4
@@ -983,22 +916,24 @@ x09: @ADD HL,BC - z ignored, n cleared, h, c conditionally set.
 
 .align 4
 x0a: @LD A,(BC) - Load to the accumulator, data from the address specified by (BC)
-	ld_A_rr BC_reg,sc0
-	get_op
+	mov ld_8bit_to_reg_regO,A_reg				@ set the target register
+	ldr ld_8bit_to_reg_addr,[cpuregs,BC_reg]	@ get the target address
+	ld_8bit_to_reg
+	@ mem catch calls get_op
 
 .align 4
 x0b: @DEC BC - no flags
-	dec_reg16 sc0,BC_reg
+	dec_reg16 BC_reg
 	get_op
 
 .align 4
 x0c: @INC C
-	inc_reg8 sc0,C_reg
+	inc_reg8 C_reg
 	get_op
 
 .align 4
 x0d: @DEC C
-	dec_reg8 sc0,C_reg
+	dec_reg8 C_reg
 	get_op
 
 .align 4
@@ -1019,28 +954,28 @@ stoplbl:
 .align 4
 x11: @LD DE, d16
 	get_2_arg		
-	ld_rr_nn DE_reg,args
+	strh args,[cpuregs,DE_reg]
 	get_op
  
 .align 4
 x12: @LD (DE),A
 	ldrb sc0,[cpuregs,A_reg]
-	ld_ra16_d8 DE_reg, sc0,sc1,sc2
+	@ld_ra16_d8 DE_reg, sc0,sc1,sc2
 	get_op
 	 
 .align 4
 x13: @INC DE
-	inc_reg16 sc0, DE_reg
+	inc_reg16 DE_reg
 	get_op
 	 
 .align 4
 x14: @INC D
-	inc_reg8 sc0,D_reg
+	inc_reg8 D_reg
 	get_op
 	 
 .align 4
 x15: @DEC D
-	dec_reg8 sc0,D_reg
+	dec_reg8 D_reg
 	get_op
 	 
 .align 4
@@ -1060,20 +995,21 @@ x19: @ADD HL,DE
 	 
 .align 4
 x1a: @LD A,(DE)
-	 
+	get_op
+
 .align 4
 x1b: @DEC DE
-	dec_reg16 sc0,DE_reg
+	dec_reg16 DE_reg
 	get_op
 	 
 .align 4
 x1c: @INC E
-	inc_reg8 sc0,E_reg
+	inc_reg8 E_reg
 	get_op
 
 .align 4
 x1d: @DEC E
-	dec_reg8 sc0,E_reg
+	dec_reg8 E_reg
 	get_op
 	 
 .align 4
@@ -1097,7 +1033,7 @@ x20: @JR NZ,s8 - jump to (PC + s8) if Zero flag is reset - s8 is SIGNED
 .align 4
 x21: @LD HL,d16 - no flags
 	get_2_arg
-	ld_rr_nn HL_reg,args
+	strh args,[cpuregs,HL_reg]
 	get_op
 
 .align 4
@@ -1107,22 +1043,22 @@ x22: @LD (HL+),A - Same as LD (HL),A - INC HL
 	add sc2,1
 	strh sc2,[cpuregs,HL_reg]
 	ldrb sc0,[cpuregs,A_reg]
-	ld_ra16_d8 SC_reg,sc0,sc1,sc2
+	@ld_ra16_d8 SC_reg,sc0,sc1,sc2
 	get_op
    
 .align 4
 x23: @INC HL
-	inc_reg16 sc0,HL_reg
+	inc_reg16 HL_reg
 	get_op
 	 
 .align 4
 x24: @INC H
-	inc_reg8 sc0,H_reg
+	inc_reg8 H_reg
 	get_op
 	 
 .align 4
 x25: @DEC H
-	dec_reg8 sc0,H_reg
+	dec_reg8 H_reg
 	get_op
 	 
 .align 4
@@ -1144,21 +1080,23 @@ x29: @ADD HL,HL
 
 .align 4
 x2a: @LD A,(HL+)
-
+	mov ld_8bit_to_reg_regO,A_reg
+	ldr ld_8bit_to_reg_addr,[cpuregs,HL_reg]
+	inc_reg16 HL_reg
 	 
 .align 4
 x2b: @DEC HL
-	dec_reg16 r0,HL_reg
+	dec_reg16 HL_reg
 	get_op
 	 
 .align 4
 x2c: @INC L
-	inc_reg8 sc0,L_reg
+	inc_reg8 L_reg
 	get_op
 	 
 .align 4
 x2d: @DEC L
-	dec_reg8 sc0,L_reg
+	dec_reg8 L_reg
 	get_op
 	 
 .align 4
@@ -1199,7 +1137,7 @@ x32: @LD (HL-),A
 	sub sc0,1
 	strh sc0,[cpuregs,HL_reg]
 	ldrb sc0,[cpuregs,A_reg]
-	ld_ra16_d8 SC_reg,sc0,sc1,sc2
+	@ld_ra16_d8 SC_reg,sc0,sc1,sc2
 	get_op
 	 
 .align 4
@@ -1296,12 +1234,12 @@ x3b: @DEC SP
 	 
 .align 4
 x3c: @INC A
-	inc_reg8 sc0,A_reg
+	inc_reg8 A_reg
 	get_op
 
 .align 4
 x3d: @DEC A
-	dec_reg8 sc0,A_reg
+	dec_reg8 A_reg
 	get_op
 	 
 .align 4
@@ -1319,27 +1257,27 @@ x40: @LD B,B
 	 
 .align 4
 x41: @LD B,C
-	ld_reg8_reg8 sc0,B_reg,C_reg
+	ld_reg8_reg8 B_reg,C_reg
 	get_op
 	 
 .align 4
 x42: @LD B,D
-	ld_reg8_reg8 sc0,B_reg,D_reg
+	ld_reg8_reg8 B_reg,D_reg
 	get_op
 	 
 .align 4
 x43: @LD B,E
-	ld_reg8_reg8 sc0,B_reg,E_reg
+	ld_reg8_reg8 B_reg,E_reg
 	get_op
 	 
 .align 4
 x44: @LD B,H
-	ld_reg8_reg8 sc0,B_reg,H_reg
+	ld_reg8_reg8 B_reg,H_reg
 	get_op
 	 
 .align 4
 x45: @LD B,L
-	ld_reg8_reg8 sc0,B_reg,L_reg
+	ld_reg8_reg8 B_reg,L_reg
 	get_op
 	 
 .align 4
@@ -1348,12 +1286,12 @@ x46: @LD B,(HL)
 	 
 .align 4
 x47: @LD B,A
-	ld_reg8_reg8 sc0,B_reg,A_reg
+	ld_reg8_reg8 B_reg,A_reg
 	get_op
 	 
 .align 4
 x48: @LD C,B
-	ld_reg8_reg8 sc0,C_reg,B_reg
+	ld_reg8_reg8 C_reg,B_reg
 	get_op
 	 
 .align 4
@@ -1362,22 +1300,22 @@ x49: @LD C,C
 	 
 .align 4
 x4a: @LD C,D
-	ld_reg8_reg8 sc0,C_reg,D_reg
+	ld_reg8_reg8 C_reg,D_reg
 	get_op
 	 
 .align 4
 x4b: @LD C,E
-	ld_reg8_reg8 sc0,C_reg,E_reg
+	ld_reg8_reg8 C_reg,E_reg
 	get_op
 	 
 .align 4
 x4c: @LD C,H
-	ld_reg8_reg8 sc0,C_reg,H_reg
+	ld_reg8_reg8 C_reg,H_reg
 	get_op
 	 
 .align 4
 x4d: @LD C,L
-	ld_reg8_reg8 sc0,C_reg,L_reg
+	ld_reg8_reg8 C_reg,L_reg
 	get_op
 	 
 .align 4
@@ -1386,17 +1324,17 @@ x4e: @LD C,(HL)
 	 
 .align 4
 x4f: @LD C,A
-	ld_reg8_reg8 sc0,C_reg,A_reg
+	ld_reg8_reg8 C_reg,A_reg
 	get_op
 	 
 .align 4
 x50: @LD D,B
-	ld_reg8_reg8 sc0,D_reg,B_reg
+	ld_reg8_reg8 D_reg,B_reg
 	get_op
 	 
 .align 4
 x51: @LD D,C
-	ld_reg8_reg8 sc0,D_reg,C_reg
+	ld_reg8_reg8 D_reg,C_reg
 	get_op
 	 
 .align 4
@@ -1405,17 +1343,17 @@ x52: @LD D,D
 	 
 .align 4
 x53: @LD D,E
-	ld_reg8_reg8 sc0,D_reg,E_reg
+	ld_reg8_reg8 D_reg,E_reg
 	get_op
 	 
 .align 4
 x54: @LD D,H
-	ld_reg8_reg8 sc0,D_reg,H_reg
+	ld_reg8_reg8 D_reg,H_reg
 	get_op
 	 
 .align 4
 x55: @LD D,L
-	ld_reg8_reg8 sc0,D_reg,L_reg
+	ld_reg8_reg8 D_reg,L_reg
 	get_op
 	 
 .align 4
@@ -1424,22 +1362,22 @@ x56: @LD D,(HL)
 	 
 .align 4
 x57: @LD D,A
-	ld_reg8_reg8 sc0,D_reg,A_reg
+	ld_reg8_reg8 D_reg,A_reg
 	get_op
 	 
 .align 4
 x58: @LD E,B
-	ld_reg8_reg8 sc0,E_reg,B_reg
+	ld_reg8_reg8 E_reg,B_reg
 	get_op
 	 
 .align 4
 x59: @LD E,C
-	ld_reg8_reg8 sc0,E_reg,C_reg
+	ld_reg8_reg8 E_reg,C_reg
 	get_op
 	 
 .align 4
 x5a: @LD E,D
-	ld_reg8_reg8 sc0,E_reg,D_reg
+	ld_reg8_reg8 E_reg,D_reg
 	get_op
 	 
 .align 4
@@ -1448,12 +1386,12 @@ x5b: @LD E,E
 	 
 .align 4
 x5c: @LD E,H
-	ld_reg8_reg8 sc0,E_reg,H_reg
+	ld_reg8_reg8 E_reg,H_reg
 	get_op
 	 
 .align 4
 x5d: @LD E,L
-	ld_reg8_reg8 sc0,E_reg,L_reg
+	ld_reg8_reg8 E_reg,L_reg
 	get_op
 	 
 .align 4
@@ -1462,27 +1400,27 @@ x5e: @LD E,(HL)
 	 
 .align 4
 x5f: @LD E,A
-	ld_reg8_reg8 sc0,E_reg,A_reg
+	ld_reg8_reg8 E_reg,A_reg
 	get_op
 	 
 .align 4
 x60: @LD H,B
-	ld_reg8_reg8 sc0,H_reg,B_reg
+	ld_reg8_reg8 H_reg,B_reg
 	get_op
 	 
 .align 4
 x61: @LD H,C
-	ld_reg8_reg8 sc0,H_reg,C_reg
+	ld_reg8_reg8 H_reg,C_reg
 	get_op
 	 
 .align 4
 x62: @LD H,D
-	ld_reg8_reg8 sc0,H_reg,D_reg
+	ld_reg8_reg8 H_reg,D_reg
 	get_op
 	 
 .align 4
 x63: @LD H,E
-	ld_reg8_reg8 sc0,H_reg,E_reg
+	ld_reg8_reg8 H_reg,E_reg
 	get_op
 	 
 .align 4
@@ -1491,7 +1429,7 @@ x64: @LD H,H
 	 
 .align 4
 x65: @LD H,L
-	ld_reg8_reg8 sc0,H_reg,L_reg
+	ld_reg8_reg8 H_reg,L_reg
 	get_op
 	 
 .align 4
@@ -1500,32 +1438,32 @@ x66: @LD H,(HL)
 	 
 .align 4
 x67: @LD H,A
-	ld_reg8_reg8 sc0,H_reg,A_reg
+	ld_reg8_reg8 H_reg,A_reg
 	get_op
 	 
 .align 4
 x68: @LD L,B
-	ld_reg8_reg8 sc0,L_reg,B_reg
+	ld_reg8_reg8 L_reg,B_reg
 	get_op
 	 
 .align 4
 x69: @LD L,C
-	ld_reg8_reg8 sc0,L_reg,C_reg
+	ld_reg8_reg8 L_reg,C_reg
 	get_op
 	 
 .align 4
 x6a: @LD L,D
-	ld_reg8_reg8 sc0,L_reg,D_reg
+	ld_reg8_reg8 L_reg,D_reg
 	get_op
 	 
 .align 4
 x6b: @LD L,E
-	ld_reg8_reg8 sc0,L_reg,E_reg
+	ld_reg8_reg8 L_reg,E_reg
 	get_op
 	 
 .align 4
 x6c: @LD L,H
-	ld_reg8_reg8 sc0,L_reg,H_reg
+	ld_reg8_reg8 L_reg,H_reg
 	get_op
 	 
 .align 4
@@ -1538,14 +1476,14 @@ x6e: @LD L,(HL)
 
 .align 4
 x6f: @LD L,A
-	ld_reg8_reg8 sc0,L_reg,A_reg
+	ld_reg8_reg8 L_reg,A_reg
 	get_op
 	 
 
 .align 4
 x70: @LD (HL),B
 	ldrb sc0,[cpuregs,B_reg]
-	ld_ra16_d8 HL_reg,sc0,sc1,sc2
+	@ld_ra16_d8 HL_reg,sc0,sc1,sc2
 	get_op
 	
 .ltorg
@@ -1553,7 +1491,7 @@ x70: @LD (HL),B
 .align 4
 x71: @LD (HL),C
 	ldrb sc0,[cpuregs,C_reg]
-	ld_ra16_d8 HL_reg,sc0,sc1,sc2
+	@ld_ra16_d8 HL_reg,sc0,sc1,sc2
 	get_op
 	 
 .ltorg
@@ -1561,7 +1499,7 @@ x71: @LD (HL),C
 .align 4
 x72: @LD (HL),D
 	ldrb sc0,[cpuregs,D_reg]
-	ld_ra16_d8 HL_reg,sc0,sc1,sc2
+	@ld_ra16_d8 HL_reg,sc0,sc1,sc2
 	get_op
 	 
 
@@ -1569,7 +1507,7 @@ x72: @LD (HL),D
 .align 4
 x73: @LD (HL),E
 	ldrb sc0,[cpuregs,E_reg]
-	ld_ra16_d8 HL_reg,sc0,sc1,sc2
+	@ld_ra16_d8 HL_reg,sc0,sc1,sc2
 	get_op
 
 .ltorg 
@@ -1577,7 +1515,7 @@ x73: @LD (HL),E
 .align 4
 x74: @LD (HL),H
 	ldrb sc0,[cpuregs,H_reg]
-	ld_ra16_d8 HL_reg,sc0,sc1,sc2
+	@ld_ra16_d8 HL_reg,sc0,sc1,sc2
 	get_op
  
 .ltorg
@@ -1585,7 +1523,7 @@ x74: @LD (HL),H
 .align 4
 x75: @LD (HL),L
 	ldrb sc0,[cpuregs,L_reg]
-	ld_ra16_d8 HL_reg,sc0,sc1,sc2
+	@ld_ra16_d8 HL_reg,sc0,sc1,sc2
 	get_op
 	 
 .ltorg
@@ -1662,32 +1600,32 @@ lower77: @sc1 holds the 16-bit address
 	 
 .align 4
 x78: @LD A,B
-	ld_reg8_reg8 sc0,A_reg,B_reg
+	ld_reg8_reg8 A_reg,B_reg
 	get_op
 	 
 .align 4
 x79: @LD A,C - no flags
-	ld_reg8_reg8 sc0,A_reg,C_reg
+	ld_reg8_reg8 A_reg,C_reg
 	get_op
 	 
 .align 4
 x7a: @LD A,D
-	ld_reg8_reg8 sc0,A_reg,D_reg
+	ld_reg8_reg8 A_reg,D_reg
 	get_op
 	 
 .align 4
 x7b: @LD A,E
-	ld_reg8_reg8 sc0,A_reg,E_reg
+	ld_reg8_reg8 A_reg,E_reg
 	get_op
 	 
 .align 4
 x7c: @LD A,H
-	ld_reg8_reg8 sc0,A_reg,H_reg
+	ld_reg8_reg8 A_reg,H_reg
 	get_op
 	 
 .align 4
 x7d: @LD A,L
-	ld_reg8_reg8 sc0,A_reg,L_reg
+	ld_reg8_reg8 A_reg,L_reg
 	get_op
 	 
 .align 4
@@ -1700,32 +1638,32 @@ x7f: @LD A,A
 	 
 .align 4
 x80: @ADD A,B
-	add_reg8_reg8 r0,r8,r9,A_reg,B_reg
+	add_reg8_reg8 A_reg,B_reg
 	get_op
 	 
 .align 4
 x81: @ADD A,C
-	add_reg8_reg8 r0,r8,r9,A_reg,C_reg
+	add_reg8_reg8 A_reg,C_reg
 	get_op
 	 
 .align 4
 x82: @ADD A,D
-	add_reg8_reg8 r0,r8,r9,A_reg,D_reg
+	add_reg8_reg8 A_reg,D_reg
 	get_op
 	 
 .align 4
 x83: @ADD A,E
-	add_reg8_reg8 r0,r8,r9,A_reg,E_reg
+	add_reg8_reg8 A_reg,E_reg
 	get_op
 	 
 .align 4
 x84: @ADD A,H
-	add_reg8_reg8 r0,r8,r9,A_reg,H_reg
+	add_reg8_reg8 A_reg,H_reg
 	get_op
 	 
 .align 4
 x85: @ADD A,L
-	add_reg8_reg8 r0,r8,r9,A_reg,L_reg
+	add_reg8_reg8 A_reg,L_reg
 	get_op
 	 
 .align 4
@@ -1734,37 +1672,37 @@ x86: @ADD A,(HL)
 	 
 .align 4
 x87: @ADD A,A
-	add_regA_regA r0
+	add_regA_regA
 	get_op
 	 
 .align 4
 x88: @ADC A,B
-	adc_reg8_reg8 r0,r8,r9,A_reg,B_reg
+	adc_reg8_reg8 A_reg,B_reg
 	get_op
 	 
 .align 4
 x89: @ADC A,C
-	adc_reg8_reg8 r0,r8,r9,A_reg,C_reg
+	adc_reg8_reg8 A_reg,C_reg
 	get_op
 	 
 .align 4
 x8a: @ADC A,D
-	adc_reg8_reg8 r0,r8,r9,A_reg,D_reg
+	adc_reg8_reg8 A_reg,D_reg
 	get_op
 	 
 .align 4
 x8b: @ADC A,E
-	adc_reg8_reg8 r0,r8,r9,A_reg,E_reg
+	adc_reg8_reg8 A_reg,E_reg
 	get_op
 	 
 .align 4
 x8c: @ADC A,H
-	adc_reg8_reg8 r0,r8,r9,A_reg,H_reg
+	adc_reg8_reg8 A_reg,H_reg
 	get_op
 	 
 .align 4
 x8d: @ADC A,L
-	adc_reg8_reg8 r0,r8,r9,A_reg,L_reg
+	adc_reg8_reg8 A_reg,L_reg
 	get_op
 	 
 .align 4
@@ -1773,37 +1711,37 @@ x8e: @ADC A,(HL)
 	 
 .align 4
 x8f: @ADC A,A
-	adc_regA_regA r0
+	adc_regA_regA
 	get_op
 	 
 .align 4
 x90: @SUB B
-	sub_A_reg8 r0,r8,r9,B_reg
+	sub_A_reg8 B_reg
 	get_op 
 
 .align 4
 x91: @SUB C
-	sub_A_reg8 r0,r8,r9,C_reg
+	sub_A_reg8 C_reg
 	get_op 
 	 
 .align 4
 x92: @SUB D
-	sub_A_reg8 r0,r8,r9,D_reg
+	sub_A_reg8 D_reg
 	get_op 
 	 
 .align 4
 x93: @SUB E
-	sub_A_reg8 r0,r8,r9,E_reg
+	sub_A_reg8 E_reg
 	get_op 
 	 
 .align 4
 x94: @SUB H
-	sub_A_reg8 r0,r8,r9,H_reg
+	sub_A_reg8 H_reg
 	get_op 
 	 
 .align 4
 x95: @SUB L
-	sub_A_reg8 r0,r8,r9,L_reg
+	sub_A_reg8 L_reg
 	get_op 
 	 
 .align 4
@@ -1819,32 +1757,32 @@ x97: @SUB A
 	 
 .align 4
 x98: @SBC A,B
-	sbc_A_reg8 r0,r8,r9,B_reg
+	sbc_A_reg8 B_reg
 	get_op 
 	 
 .align 4
 x99: @SBC A,C
-	sbc_A_reg8 r0,r8,r9,C_reg
+	sbc_A_reg8 C_reg
 	get_op 
 	 
 .align 4
 x9a: @SBC A,D
-	sbc_A_reg8 r0,r8,r9,D_reg
+	sbc_A_reg8 D_reg
 	get_op 
 	 
 .align 4
 x9b: @SBC A,E
-	sbc_A_reg8 r0,r8,r9,E_reg
+	sbc_A_reg8 E_reg
 	get_op 
 	 
 .align 4
 x9c: @SBC A,H
-	sbc_A_reg8 r0,r8,r9,H_reg
+	sbc_A_reg8 H_reg
 	get_op 
 	 
 .align 4
 x9d: @SBC A,L
-	sbc_A_reg8 r0,r8,r9,L_reg
+	sbc_A_reg8 L_reg
 	get_op 
 	 
 .align 4
@@ -1864,32 +1802,32 @@ x9f: @SBC A,A
 	 
 .align 4
 xa0: @AND B
-	and_A_reg8 sc0,sc1,B_reg
+	and_A_reg8 B_reg
 	get_op
 	 
 .align 4
 xa1: @AND C
-	and_A_reg8 sc0,sc1,C_reg
+	and_A_reg8 C_reg
 	get_op
 	 
 .align 4
 xa2: @AND D
-	and_A_reg8 sc0,sc1,D_reg
+	and_A_reg8 D_reg
 	get_op
 	 
 .align 4
 xa3: @AND E
-	and_A_reg8 sc0,sc1,E_reg
+	and_A_reg8 E_reg
 	get_op
 	 
 .align 4
 xa4: @AND H
-	and_A_reg8 sc0,sc1,H_reg
+	and_A_reg8 H_reg
 	get_op
 	 
 .align 4
 xa5: @AND L
-	and_A_reg8 sc0,sc1,L_reg
+	and_A_reg8 L_reg
 	get_op
 	 
 .align 4
@@ -1971,32 +1909,32 @@ xb7: @OR A
 	 
 .align 4
 xb8: @CP B
-	cp_A_reg8 sc0,sc1,B_reg
+	cp_A_reg8 B_reg
 	get_op
 	 
 .align 4
 xb9: @CP C
-	cp_A_reg8 sc0,sc1,C_reg
+	cp_A_reg8 C_reg
 	get_op
 	 
 .align 4
 xba: @CP D
-	cp_A_reg8 sc0,sc1,D_reg
+	cp_A_reg8 D_reg
 	get_op
 	 
 .align 4
 xbb: @CP E
-	cp_A_reg8 sc0,sc1,E_reg
+	cp_A_reg8 E_reg
 	get_op
 	 
 .align 4
 xbc: @CP H
-	cp_A_reg8 sc0,sc1,H_reg
+	cp_A_reg8 H_reg
 	get_op
 	 
 .align 4
 xbd: @CP L
-	cp_A_reg8 sc0,sc1,L_reg
+	cp_A_reg8 L_reg
 	get_op
 	 
 .align 4
@@ -2193,7 +2131,7 @@ xea: @LD (a16),A - put A into address (a16) addr fix
 	get_2_arg
 	strh args,[cpuregs,SC_reg]
 	ldrb sc0,[cpuregs,A_reg]
-	ld_ra16_d8 SC_reg,sc0,sc1,sc2
+	@ld_ra16_d8 SC_reg,sc0,sc1,sc2
 	get_op
 	 
 .ltorg
@@ -2294,32 +2232,32 @@ xff: @RST 38H
 
 .align 4
 cb00: @RLC B - Rotate B. old bit 7 goes to carry and to bit 0. Z is conditionally set, N,H cleared
-	cb_rlc_r8 sc0,B_reg
+	cb_rlc_r8 B_reg
 	get_op
 
 .align 4
 cb01: @RLC,C
-	cb_rlc_r8 sc0,C_reg
+	cb_rlc_r8 C_reg
 	get_op
 
 .align 4
 cb02: @RLC,D
-	cb_rlc_r8 sc0,D_reg
+	cb_rlc_r8 D_reg
 	get_op
 
 .align 4
 cb03: @RLC,E
-	cb_rlc_r8 sc0,E_reg
+	cb_rlc_r8 E_reg
 	get_op
 
 .align 4
 cb04: @RLC,H
-	cb_rlc_r8 sc0,H_reg
+	cb_rlc_r8 H_reg
 	get_op
 
 .align 4
 cb05: @RLC,L
-	cb_rlc_r8 sc0,L_reg
+	cb_rlc_r8 L_reg
 	get_op
 
 .align 4
@@ -2328,37 +2266,37 @@ cb06: @RLC,(HL)
 
 .align 4
 cb07: @RLC,A
-	cb_rlc_r8 sc0,A_reg
+	cb_rlc_r8 A_reg
 	get_op
 
 .align 4
 cb08: @RRC,B
-	cb_rrc_r8 sc0,B_reg
+	cb_rrc_r8 B_reg
 	get_op
 
 .align 4
 cb09: @RRC,C
-	cb_rrc_r8 sc0,C_reg
+	cb_rrc_r8 C_reg
 	get_op
 
 .align 4
 cb0a: @RRC,D
-	cb_rrc_r8 sc0,D_reg
+	cb_rrc_r8 D_reg
 	get_op
 
 .align 4
 cb0b: @RRC,E
-	cb_rrc_r8 sc0,E_reg
+	cb_rrc_r8 E_reg
 	get_op
 
 .align 4
 cb0c: @RRC,H
-	cb_rrc_r8 sc0,H_reg
+	cb_rrc_r8 H_reg
 	get_op
 
 .align 4
 cb0d: @RRC,L
-	cb_rrc_r8 sc0,L_reg
+	cb_rrc_r8 L_reg
 	get_op
 
 .align 4
@@ -2367,37 +2305,37 @@ cb0e: @RRC,(HL)
 
 .align 4
 cb0f: @RRC,A
-	cb_rrc_r8 sc0,A_reg
+	cb_rrc_r8 A_reg
 	get_op
 
 .align 4
 cb10: @RL,B
-	cb_rl_r8 sc0,B_reg
+	cb_rl_r8 B_reg
 	get_op
 
 .align 4
 cb11: @RL,C
-	cb_rl_r8 sc0,C_reg
+	cb_rl_r8 C_reg
 	get_op
 
 .align 4
 cb12: @RL,D
-	cb_rl_r8 sc0,D_reg
+	cb_rl_r8 D_reg
 	get_op
 
 .align 4
 cb13: @RL,E
-	cb_rl_r8 sc0,E_reg
+	cb_rl_r8 E_reg
 	get_op
 
 .align 4
 cb14: @RL,H
-	cb_rl_r8 sc0,H_reg
+	cb_rl_r8 H_reg
 	get_op
 
 .align 4
 cb15: @RL,L
-	cb_rl_r8 sc0,L_reg
+	cb_rl_r8 L_reg
 	get_op
 
 .align 4
@@ -2406,37 +2344,37 @@ cb16: @RL,(HL)
 
 .align 4
 cb17: @RL,A
-	cb_rl_r8 sc0,A_reg
+	cb_rl_r8 A_reg
 	get_op
 
 .align 4
 cb18: @RR,B
-	cb_rr_r8 sc0,B_reg
+	cb_rr_r8 B_reg
 	get_op
 
 .align 4
 cb19: @RR,C
-	cb_rr_r8 sc0,C_reg
+	cb_rr_r8 C_reg
 	get_op
 
 .align 4
 cb1a: @RR,D
-	cb_rr_r8 sc0,D_reg
+	cb_rr_r8 D_reg
 	get_op
 
 .align 4
 cb1b: @RR,E
-	cb_rr_r8 sc0,E_reg
+	cb_rr_r8 E_reg
 	get_op
 
 .align 4
 cb1c: @RR,H
-	cb_rr_r8 sc0,H_reg
+	cb_rr_r8 H_reg
 	get_op
 
 .align 4
 cb1d: @RR,L
-	cb_rr_r8 sc0,L_reg
+	cb_rr_r8 L_reg
 	get_op
 
 .align 4
@@ -2445,37 +2383,37 @@ cb1e: @RR,(HL)
 
 .align 4
 cb1f: @RR,A
-	cb_rr_r8 sc0,A_reg
+	cb_rr_r8 A_reg
 	get_op
 
 .align 4
 cb20: @SLA,B
-	cb_sla_r8 sc0,B_reg
+	cb_sla_r8 B_reg
 	get_op
 
 .align 4
 cb21: @SLA,C
-	cb_sla_r8 sc0,C_reg
+	cb_sla_r8 C_reg
 	get_op
 
 .align 4
 cb22: @SLA,D
-	cb_sla_r8 sc0,D_reg
+	cb_sla_r8 D_reg
 	get_op
 
 .align 4
 cb23: @SLA,E
-	cb_sla_r8 sc0,E_reg
+	cb_sla_r8 E_reg
 	get_op
 
 .align 4
 cb24: @SLA,H
-	cb_sla_r8 sc0,H_reg
+	cb_sla_r8 H_reg
 	get_op
 
 .align 4
 cb25: @SLA,L
-	cb_sla_r8 sc0,L_reg
+	cb_sla_r8 L_reg
 	get_op
 
 .align 4
@@ -2484,37 +2422,37 @@ cb26: @SLA,(HL)
 
 .align 4
 cb27: @SLA,A
-	cb_sla_r8 sc0,A_reg
+	cb_sla_r8 A_reg
 	get_op
 
 .align 4
 cb28: @SRA,B
-	cb_sra_r8 sc0,B_reg
+	cb_sra_r8 B_reg
 	get_op
 
 .align 4
 cb29: @SRA,C
-	cb_sra_r8 sc0,C_reg
+	cb_sra_r8 C_reg
 	get_op
 
 .align 4
 cb2a: @SRA,D
-	cb_sra_r8 sc0,D_reg
+	cb_sra_r8 D_reg
 	get_op
 
 .align 4
 cb2b: @SRA,E
-	cb_sra_r8 sc0,E_reg
+	cb_sra_r8 E_reg
 	get_op
 
 .align 4
 cb2c: @SRA,H
-	cb_sra_r8 sc0,H_reg
+	cb_sra_r8 H_reg
 	get_op
 
 .align 4
 cb2d: @SRA,L
-	cb_sra_r8 sc0,L_reg
+	cb_sra_r8 L_reg
 	get_op
 
 .align 4
@@ -2523,37 +2461,37 @@ cb2e: @SRA,(HL)
 
 .align 4
 cb2f: @SRA,A
-	cb_sra_r8 sc0,A_reg
+	cb_sra_r8 A_reg
 	get_op
 
 .align 4
 cb30: @SWAP B - set z conditionally, N,H,C cleared
-	cb_swap_r8 sc0,B_reg
+	cb_swap_r8 B_reg
 	get_op
 
 .align 4
 cb31: @SWAP C
-	cb_swap_r8 sc0,C_reg
+	cb_swap_r8 C_reg
 	get_op
 
 .align 4
 cb32: @SWAP D
-	cb_swap_r8 sc0,D_reg
+	cb_swap_r8 D_reg
 	get_op
 
 .align 4
 cb33: @SWAP E
-	cb_swap_r8 sc0,E_reg
+	cb_swap_r8 E_reg
 	get_op
 
 .align 4
 cb34: @SWAP H
-	cb_swap_r8 sc0,H_reg
+	cb_swap_r8 H_reg
 	get_op
 
 .align 4
 cb35: @SWAP L
-	cb_swap_r8 sc0,L_reg
+	cb_swap_r8 L_reg
 	get_op
 
 .align 4
@@ -2562,37 +2500,37 @@ cb36: @SWAP (HL)
 
 .align 4
 cb37: @SWAP A
-	cb_swap_r8 sc0,A_reg
+	cb_swap_r8 A_reg
 	get_op
 
 .align 4
 cb38: @SRL,B
-	cb_srl_r8 sc0,B_reg
+	cb_srl_r8 B_reg
 	get_op
 
 .align 4
 cb39: @SRL,C
-	cb_srl_r8 sc0,C_reg
+	cb_srl_r8 C_reg
 	get_op
 
 .align 4
 cb3a: @SRL,D
-	cb_srl_r8 sc0,D_reg
+	cb_srl_r8 D_reg
 	get_op
 
 .align 4
 cb3b: @SRL,E
-	cb_srl_r8 sc0,E_reg
+	cb_srl_r8 E_reg
 	get_op
 
 .align 4
 cb3c: @SRL,H
-	cb_srl_r8 sc0,H_reg
+	cb_srl_r8 H_reg
 	get_op
 
 .align 4
 cb3d: @SRL,L
-	cb_srl_r8 sc0,L_reg
+	cb_srl_r8 L_reg
 	get_op
 
 .align 4
@@ -2601,37 +2539,37 @@ cb3e: @SRL,(HL)
 
 .align 4
 cb3f: @SRL,A
-	cb_srl_r8 sc0,A_reg
+	cb_srl_r8 A_reg
 	get_op
 
 .align 4
 cb40: @BIT 0,B
-	cb_bit sc0,0,B_reg
+	cb_bit 0,B_reg
 	get_op
 
 .align 4
 cb41: @BIT 0,C
-	cb_bit sc0,0,C_reg
+	cb_bit 0,C_reg
 	get_op
 
 .align 4
 cb42: @BIT 0,D
-	cb_bit sc0,0,D_reg
+	cb_bit 0,D_reg
 	get_op
 
 .align 4
 cb43: @BIT 0,E
-	cb_bit sc0,0,E_reg
+	cb_bit 0,E_reg
 	get_op
 
 .align 4
 cb44: @BIT 0,H
-	cb_bit sc0,0,H_reg
+	cb_bit 0,H_reg
 	get_op
 
 .align 4
 cb45: @BIT 0,L
-	cb_bit sc0,0,L_reg
+	cb_bit 0,L_reg
 	get_op
 
 .align 4
@@ -2639,37 +2577,37 @@ cb46: @BIT 0,(HL)
 
 .align 4
 cb47: @BIT 0,A
-	cb_bit sc0,0,A_reg
+	cb_bit 0,A_reg
 	get_op
 
 .align 4
 cb48: @BIT 1,B
-	cb_bit sc0,1,B_reg
+	cb_bit 1,B_reg
 	get_op
 
 .align 4
 cb49: @BIT 1,C
-	cb_bit sc0,1,C_reg
+	cb_bit 1,C_reg
 	get_op
 
 .align 4
 cb4a: @BIT 1,D
-	cb_bit sc0,1,D_reg
+	cb_bit 1,D_reg
 	get_op
 
 .align 4
 cb4b: @BIT 1,E
-	cb_bit sc0,1,E_reg
+	cb_bit 1,E_reg
 	get_op
 
 .align 4
 cb4c: @BIT 1,H
-	cb_bit sc0,1,H_reg
+	cb_bit 1,H_reg
 	get_op
 
 .align 4
 cb4d: @BIT 1,L
-	cb_bit sc0,1,L_reg
+	cb_bit 1,L_reg
 	get_op
 
 .align 4
@@ -2678,37 +2616,37 @@ cb4e: @BIT 1,(HL)
 
 .align 4
 cb4f: @BIT 1,A
-	cb_bit sc0,1,A_reg
+	cb_bit 1,A_reg
 	get_op
 
 .align 4
 cb50: @BIT 2,B
-	cb_bit sc0,2,B_reg
+	cb_bit 2,B_reg
 	get_op
 
 .align 4
 cb51: @BIT 2,C
-	cb_bit sc0,2,C_reg
+	cb_bit 2,C_reg
 	get_op
 
 .align 4
 cb52: @BIT 2,D
-	cb_bit sc0,2,D_reg
+	cb_bit 2,D_reg
 	get_op
 
 .align 4
 cb53: @BIT 2,E
-	cb_bit sc0,2,E_reg
+	cb_bit 2,E_reg
 	get_op
 
 .align 4
 cb54: @BIT 2,H
-	cb_bit sc0,2,H_reg
+	cb_bit 2,H_reg
 	get_op
 
 .align 4
 cb55: @BIT 2,L
-	cb_bit sc0,2,L_reg
+	cb_bit 2,L_reg
 	get_op
 
 .align 4
@@ -2717,37 +2655,37 @@ cb56: @BIT 2,(HL)
 
 .align 4
 cb57: @BIT 2,A
-	cb_bit sc0,2,A_reg
+	cb_bit 2,A_reg
 	get_op
 
 .align 4
 cb58: @BIT 3,B
-	cb_bit sc0,3,B_reg
+	cb_bit 3,B_reg
 	get_op
 
 .align 4
 cb59: @BIT 3,C
-	cb_bit sc0,3,C_reg
+	cb_bit 3,C_reg
 	get_op
 
 .align 4
 cb5a: @BIT 3,D
-	cb_bit sc0,3,D_reg
+	cb_bit 3,D_reg
 	get_op
 
 .align 4
 cb5b: @BIT 3,E
-	cb_bit sc0,3,E_reg
+	cb_bit 3,E_reg
 	get_op
 
 .align 4
 cb5c: @BIT 3,H
-	cb_bit sc0,3,H_reg
+	cb_bit 3,H_reg
 	get_op
 
 .align 4
 cb5d: @BIT 3,L
-	cb_bit sc0,3,L_reg
+	cb_bit 3,L_reg
 	get_op
 
 .align 4
@@ -2756,37 +2694,37 @@ cb5e: @BIT 3,(HL)
 
 .align 4
 cb5f: @BIT 3,A
-	cb_bit sc0,3,A_reg
+	cb_bit 3,A_reg
 	get_op
 
 .align 4
 cb60: @BIT 4,B
-	cb_bit sc0,4,B_reg
+	cb_bit 4,B_reg
 	get_op
 
 .align 4
 cb61: @BIT 4,C
-	cb_bit sc0,4,C_reg
+	cb_bit 4,C_reg
 	get_op
 
 .align 4
 cb62: @BIT 4,D
-	cb_bit sc0,4,D_reg
+	cb_bit 4,D_reg
 	get_op
 
 .align 4
 cb63: @BIT 4,E
-	cb_bit sc0,4,E_reg
+	cb_bit 4,E_reg
 	get_op
 
 .align 4
 cb64: @BIT 4,H
-	cb_bit sc0,4,H_reg
+	cb_bit 4,H_reg
 	get_op
 
 .align 4
 cb65: @BIT 4,L
-	cb_bit sc0,4,L_reg
+	cb_bit 4,L_reg
 	get_op
 
 .align 4
@@ -2795,37 +2733,37 @@ cb66: @BIT 4,(HL)
 
 .align 4
 cb67: @BIT 4,A
-	cb_bit sc0,4,A_reg
+	cb_bit 4,A_reg
 	get_op
 
 .align 4
 cb68: @BIT 5,B
-	cb_bit sc0,5,B_reg
+	cb_bit 5,B_reg
 	get_op
 
 .align 4
 cb69: @BIT 5,C
-	cb_bit sc0,5,C_reg
+	cb_bit 5,C_reg
 	get_op
 
 .align 4
 cb6a: @BIT 5,D
-	cb_bit sc0,5,D_reg
+	cb_bit 5,D_reg
 	get_op
 
 .align 4
 cb6b: @BIT 5,E
-	cb_bit sc0,5,E_reg
+	cb_bit 5,E_reg
 	get_op
 
 .align 4
 cb6c: @BIT 5,H
-	cb_bit sc0,5,H_reg
+	cb_bit 5,H_reg
 	get_op
 
 .align 4
 cb6d: @BIT 5,L
-	cb_bit sc0,5,L_reg
+	cb_bit 5,L_reg
 	get_op
 
 .align 4
@@ -2834,37 +2772,37 @@ cb6e: @BIT 5,(HL)
 
 .align 4
 cb6f: @BIT 5,A
-	cb_bit sc0,5,A_reg
+	cb_bit 5,A_reg
 	get_op
 
 .align 4
 cb70: @BIT 6,B
-	cb_bit sc0,6,B_reg
+	cb_bit 6,B_reg
 	get_op
 
 .align 4
 cb71: @BIT 6,C
-	cb_bit sc0,6,C_reg
+	cb_bit 6,C_reg
 	get_op
 
 .align 4
 cb72: @BIT 6,D
-	cb_bit sc0,6,D_reg
+	cb_bit 6,D_reg
 	get_op
 
 .align 4
 cb73: @BIT 6,E
-	cb_bit sc0,6,E_reg
+	cb_bit 6,E_reg
 	get_op
 
 .align 4
 cb74: @BIT 6,H
-	cb_bit sc0,6,H_reg
+	cb_bit 6,H_reg
 	get_op
 
 .align 4
 cb75: @BIT 6,L
-	cb_bit sc0,6,L_reg
+	cb_bit 6,L_reg
 	get_op
 
 .align 4
@@ -2873,37 +2811,37 @@ cb76: @BIT 6,(HL)
 
 .align 4
 cb77: @BIT 6,A
-	cb_bit sc0,6,A_reg
+	cb_bit 6,A_reg
 	get_op
 
 .align 4
 cb78: @BIT 7,B
-	cb_bit sc0,7,B_reg
+	cb_bit 7,B_reg
 	get_op
 
 .align 4
 cb79: @BIT 7,C
-	cb_bit sc0,7,C_reg
+	cb_bit 7,C_reg
 	get_op
 
 .align 4
 cb7a: @BIT 7,D
-	cb_bit sc0,7,D_reg
+	cb_bit 7,D_reg
 	get_op
 
 .align 4
 cb7b: @BIT 7,E
-	cb_bit sc0,7,E_reg
+	cb_bit 7,E_reg
 	get_op
 
 .align 4
 cb7c: @BIT 7,H
-	cb_bit sc0,7,H_reg
+	cb_bit 7,H_reg
 	get_op
 
 .align 4
 cb7d: @BIT 7,L
-	cb_bit sc0,7,L_reg
+	cb_bit 7,L_reg
 	get_op
 
 .align 4
@@ -2912,38 +2850,38 @@ cb7e: @BIT 7,(HL)
 
 .align 4
 cb7f: @BIT 7,A
-	cb_bit sc0,7,A_reg
+	cb_bit 7,A_reg
 	get_op
 
 
 .align 4
 cb80: @RES 0,B
-	cb_reset_bit sc0,0,B_reg
+	cb_reset_bit 0,B_reg
 	get_op
 
 .align 4
 cb81: @RES 0,C
-	cb_reset_bit sc0,0,C_reg
+	cb_reset_bit 0,C_reg
 	get_op
 
 .align 4
 cb82: @RES 0,D
-	cb_reset_bit sc0,0,D_reg
+	cb_reset_bit 0,D_reg
 	get_op
 
 .align 4
 cb83: @RES 0,E
-	cb_reset_bit sc0,0,E_reg
+	cb_reset_bit 0,E_reg
 	get_op
 
 .align 4
 cb84: @RES 0,H
-	cb_reset_bit sc0,0,H_reg
+	cb_reset_bit 0,H_reg
 	get_op
 
 .align 4
 cb85: @RES 0,L
-	cb_reset_bit sc0,0,L_reg
+	cb_reset_bit 0,L_reg
 	get_op
 
 .align 4
@@ -2952,37 +2890,37 @@ cb86: @RES 0,(HL)
 
 .align 4
 cb87: @RES 0,A
-	cb_reset_bit sc0,0,A_reg
+	cb_reset_bit 0,A_reg
 	get_op
 
 .align 4
 cb88: @RES 1,B
-	cb_reset_bit sc0,1,B_reg
+	cb_reset_bit 1,B_reg
 	get_op
 
 .align 4
 cb89: @RES 1,C
-	cb_reset_bit sc0,1,C_reg
+	cb_reset_bit 1,C_reg
 	get_op
 
 .align 4
 cb8a: @RES 1,D
-	cb_reset_bit sc0,1,D_reg
+	cb_reset_bit 1,D_reg
 	get_op
 
 .align 4
 cb8b: @RES 1,E
-	cb_reset_bit sc0,1,E_reg
+	cb_reset_bit 1,E_reg
 	get_op
 
 .align 4
 cb8c: @RES 1,H
-	cb_reset_bit sc0,1,H_reg
+	cb_reset_bit 1,H_reg
 	get_op
 
 .align 4
 cb8d: @RES 1,L
-	cb_reset_bit sc0,1,L_reg
+	cb_reset_bit 1,L_reg
 	get_op
 
 .align 4
@@ -2991,37 +2929,37 @@ cb8e: @RES 1,(HL)
 
 .align 4
 cb8f: @RES 1,A
-	cb_reset_bit sc0,1,A_reg
+	cb_reset_bit 1,A_reg
 	get_op
 
 .align 4
 cb90: @RES 2,B
-	cb_reset_bit sc0,2,B_reg
+	cb_reset_bit 2,B_reg
 	get_op
 
 .align 4
 cb91: @RES 2,C
-	cb_reset_bit sc0,2,C_reg
+	cb_reset_bit 2,C_reg
 	get_op
 
 .align 4
 cb92: @RES 2,D
-	cb_reset_bit sc0,2,D_reg
+	cb_reset_bit 2,D_reg
 	get_op
 
 .align 4
 cb93: @RES 2,E
-	cb_reset_bit sc0,2,E_reg
+	cb_reset_bit 2,E_reg
 	get_op
 
 .align 4
 cb94: @RES 2,H
-	cb_reset_bit sc0,2,H_reg
+	cb_reset_bit 2,H_reg
 	get_op
 
 .align 4
 cb95: @RES 2,L
-	cb_reset_bit sc0,2,L_reg
+	cb_reset_bit 2,L_reg
 	get_op
 
 .align 4
@@ -3030,37 +2968,37 @@ cb96: @RES 2,(HL)
 
 .align 4
 cb97: @RES 2,A
-	cb_reset_bit sc0,2,A_reg
+	cb_reset_bit 2,A_reg
 	get_op
 
 .align 4
 cb98: @RES 3,B
-	cb_reset_bit sc0,3,B_reg
+	cb_reset_bit 3,B_reg
 	get_op
 
 .align 4
 cb99: @RES 3,C
-	cb_reset_bit sc0,3,C_reg
+	cb_reset_bit 3,C_reg
 	get_op
 
 .align 4
 cb9a: @RES 3,D
-	cb_reset_bit sc0,3,D_reg
+	cb_reset_bit 3,D_reg
 	get_op
 
 .align 4
 cb9b: @RES 3,E
-	cb_reset_bit sc0,3,E_reg
+	cb_reset_bit 3,E_reg
 	get_op
 
 .align 4
 cb9c: @RES 3,H
-	cb_reset_bit sc0,3,H_reg
+	cb_reset_bit 3,H_reg
 	get_op
 
 .align 4
 cb9d: @RES 3,L
-	cb_reset_bit sc0,3,L_reg
+	cb_reset_bit 3,L_reg
 	get_op
 
 .align 4
@@ -3069,37 +3007,37 @@ cb9e: @RES 3,(HL)
 
 .align 4
 cb9f: @RES 3,A
-	cb_reset_bit sc0,3,A_reg
+	cb_reset_bit 3,A_reg
 	get_op
 
 .align 4
 cba0: @RES 4,B
-	cb_reset_bit sc0,4,B_reg
+	cb_reset_bit 4,B_reg
 	get_op
 
 .align 4
 cba1: @RES 4,C
-	cb_reset_bit sc0,4,C_reg
+	cb_reset_bit 4,C_reg
 	get_op
 
 .align 4
 cba2: @RES 4,D
-	cb_reset_bit sc0,4,D_reg
+	cb_reset_bit 4,D_reg
 	get_op
 
 .align 4
 cba3: @RES 4,E
-	cb_reset_bit sc0,4,E_reg
+	cb_reset_bit 4,E_reg
 	get_op
 
 .align 4
 cba4: @RES 4,H
-	cb_reset_bit sc0,4,H_reg
+	cb_reset_bit 4,H_reg
 	get_op
 
 .align 4
 cba5: @RES 4,L
-	cb_reset_bit sc0,4,L_reg
+	cb_reset_bit 4,L_reg
 	get_op
 
 .align 4
@@ -3108,37 +3046,37 @@ cba6: @RES 4,(HL)
 
 .align 4
 cba7: @RES 4,A
-	cb_reset_bit sc0,4,A_reg
+	cb_reset_bit 4,A_reg
 	get_op
 
 .align 4
 cba8: @RES 5,B
-	cb_reset_bit sc0,5,B_reg
+	cb_reset_bit 5,B_reg
 	get_op
 
 .align 4
 cba9: @RES 5,C
-	cb_reset_bit sc0,5,C_reg
+	cb_reset_bit 5,C_reg
 	get_op
 
 .align 4
 cbaa: @RES 5,D
-	cb_reset_bit sc0,5,D_reg
+	cb_reset_bit 5,D_reg
 	get_op
 
 .align 4
 cbab: @RES 5,E
-	cb_reset_bit sc0,5,E_reg
+	cb_reset_bit 5,E_reg
 	get_op
 
 .align 4
 cbac: @RES 5,H
-	cb_reset_bit sc0,5,H_reg
+	cb_reset_bit 5,H_reg
 	get_op
 
 .align 4
 cbad: @RES 5,L
-	cb_reset_bit sc0,5,L_reg
+	cb_reset_bit 5,L_reg
 	get_op
 
 .align 4
@@ -3147,37 +3085,37 @@ cbae: @RES 5,(HL)
 
 .align 4
 cbaf: @RES 5,A
-	cb_reset_bit sc0,5,A_reg
+	cb_reset_bit 5,A_reg
 	get_op
 
 .align 4
 cbb0: @RES 6,B
-	cb_reset_bit sc0,6,B_reg
+	cb_reset_bit 6,B_reg
 	get_op
 
 .align 4
 cbb1: @RES 6,C
-	cb_reset_bit sc0,6,C_reg
+	cb_reset_bit 6,C_reg
 	get_op
 
 .align 4
 cbb2: @RES 6,D
-	cb_reset_bit sc0,6,D_reg
+	cb_reset_bit 6,D_reg
 	get_op
 
 .align 4
 cbb3: @RES 6,E
-	cb_reset_bit sc0,6,E_reg
+	cb_reset_bit 6,E_reg
 	get_op
 
 .align 4
 cbb4: @RES 6,H
-	cb_reset_bit sc0,6,H_reg
+	cb_reset_bit 6,H_reg
 	get_op
 
 .align 4
 cbb5: @RES 6,L
-	cb_reset_bit sc0,6,L_reg
+	cb_reset_bit 6,L_reg
 	get_op
 
 .align 4
@@ -3186,37 +3124,37 @@ cbb6: @RES 6,(HL)
 
 .align 4
 cbb7: @RES 6,A
-	cb_reset_bit sc0,6,A_reg
+	cb_reset_bit 6,A_reg
 	get_op
 
 .align 4
 cbb8: @RES 7,B
-	cb_reset_bit sc0,7,B_reg
+	cb_reset_bit 7,B_reg
 	get_op
 
 .align 4
 cbb9: @RES 7,C
-	cb_reset_bit sc0,7,C_reg
+	cb_reset_bit 7,C_reg
 	get_op
 
 .align 4
 cbba: @RES 7,D
-	cb_reset_bit sc0,7,D_reg
+	cb_reset_bit 7,D_reg
 	get_op
 
 .align 4
 cbbb: @RES 7,E
-	cb_reset_bit sc0,7,E_reg
+	cb_reset_bit 7,E_reg
 	get_op
 
 .align 4
 cbbc: @RES 7,H
-	cb_reset_bit sc0,7,H_reg
+	cb_reset_bit 7,H_reg
 	get_op
 
 .align 4
 cbbd: @RES 7,L
-	cb_reset_bit sc0,7,L_reg
+	cb_reset_bit 7,L_reg
 	get_op
 
 .align 4
@@ -3225,37 +3163,37 @@ cbbe: @RES 7,(HL)
 
 .align 4
 cbbf: @RES 7,A
-	cb_reset_bit sc0,7,A_reg
+	cb_reset_bit 7,A_reg
 	get_op
 
 .align 4
 cbc0: @SET 0,B
-	cb_set_bit sc0,0,B_reg
+	cb_set_bit 0,B_reg
 	get_op
 
 .align 4
 cbc1: @SET 0,C
-	cb_set_bit sc0,0,C_reg
+	cb_set_bit 0,C_reg
 	get_op
 
 .align 4
 cbc2: @SET 0,D
-	cb_set_bit sc0,0,D_reg
+	cb_set_bit 0,D_reg
 	get_op
 
 .align 4
 cbc3: @SET 0,E
-	cb_set_bit sc0,0,E_reg
+	cb_set_bit 0,E_reg
 	get_op
 
 .align 4
 cbc4: @SET 0,H
-	cb_set_bit sc0,0,H_reg
+	cb_set_bit 0,H_reg
 	get_op
 
 .align 4
 cbc5: @SET 0,L
-	cb_set_bit sc0,0,L_reg
+	cb_set_bit 0,L_reg
 	get_op
 
 .align 4
@@ -3264,37 +3202,37 @@ cbc6: @SET 0,(HL)
 
 .align 4
 cbc7: @SET 0,A
-	cb_set_bit sc0,0,A_reg
+	cb_set_bit 0,A_reg
 	get_op
 
 .align 4
 cbc8: @SET 1,B
-	cb_set_bit sc0,1,B_reg
+	cb_set_bit 1,B_reg
 	get_op
 
 .align 4
 cbc9: @SET 1,C
-	cb_set_bit sc0,1,C_reg
+	cb_set_bit 1,C_reg
 	get_op
 
 .align 4
 cbca: @SET 1,D
-	cb_set_bit sc0,1,D_reg
+	cb_set_bit 1,D_reg
 	get_op
 
 .align 4
 cbcb: @SET 1,E
-	cb_set_bit sc0,1,E_reg
+	cb_set_bit 1,E_reg
 	get_op
 
 .align 4
 cbcc: @SET 1,H
-	cb_set_bit sc0,1,H_reg
+	cb_set_bit 1,H_reg
 	get_op
 
 .align 4
 cbcd: @SET 1,L
-	cb_set_bit sc0,1,L_reg
+	cb_set_bit 1,L_reg
 	get_op
 
 .align 4
@@ -3303,37 +3241,37 @@ cbce: @SET 1,(HL)
 
 .align 4
 cbcf: @SET 1,A
-	cb_set_bit sc0,1,A_reg
+	cb_set_bit 1,A_reg
 	get_op
 
 .align 4
 cbd0: @SET 2,B
-	cb_set_bit sc0,2,B_reg
+	cb_set_bit 2,B_reg
 	get_op
 
 .align 4
 cbd1: @SET 2,C
-	cb_set_bit sc0,2,C_reg
+	cb_set_bit 2,C_reg
 	get_op
 
 .align 4
 cbd2: @SET 2,D
-	cb_set_bit sc0,2,D_reg
+	cb_set_bit 2,D_reg
 	get_op
 
 .align 4
 cbd3: @SET 2,E
-	cb_set_bit sc0,2,E_reg
+	cb_set_bit 2,E_reg
 	get_op
 
 .align 4
 cbd4: @SET 2,H
-	cb_set_bit sc0,2,H_reg
+	cb_set_bit 2,H_reg
 	get_op
 
 .align 4
 cbd5: @SET 2,L
-	cb_set_bit sc0,2,L_reg
+	cb_set_bit 2,L_reg
 	get_op
 
 .align 4
@@ -3342,37 +3280,37 @@ cbd6: @SET 2,(HL)
 
 .align 4
 cbd7: @SET 2,A
-	cb_set_bit sc0,2,A_reg
+	cb_set_bit 2,A_reg
 	get_op
 
 .align 4
 cbd8: @SET 3,B
-	cb_set_bit sc0,3,B_reg
+	cb_set_bit 3,B_reg
 	get_op
 
 .align 4
 cbd9: @SET 3,C
-	cb_set_bit sc0,3,C_reg
+	cb_set_bit 3,C_reg
 	get_op
 
 .align 4
 cbda: @SET 3,D
-	cb_set_bit sc0,3,D_reg
+	cb_set_bit 3,D_reg
 	get_op
 
 .align 4
 cbdb: @SET 3,E
-	cb_set_bit sc0,3,E_reg
+	cb_set_bit 3,E_reg
 	get_op
 
 .align 4
 cbdc: @SET 3,H
-	cb_set_bit sc0,3,H_reg
+	cb_set_bit 3,H_reg
 	get_op
 
 .align 4
 cbdd: @SET 3,L
-	cb_set_bit sc0,3,L_reg
+	cb_set_bit 3,L_reg
 	get_op
 
 .align 4
@@ -3381,37 +3319,37 @@ cbde: @SET 3,(HL)
 
 .align 4
 cbdf: @SET 3,A
-	cb_set_bit sc0,3,A_reg
+	cb_set_bit 3,A_reg
 	get_op
 
 .align 4
 cbe0: @SET 4,B
-	cb_set_bit sc0,4,B_reg
+	cb_set_bit 4,B_reg
 	get_op
 
 .align 4
 cbe1: @SET 4,C
-	cb_set_bit sc0,4,C_reg
+	cb_set_bit 4,C_reg
 	get_op
 
 .align 4
 cbe2: @SET 4,D
-	cb_set_bit sc0,4,D_reg
+	cb_set_bit 4,D_reg
 	get_op
 
 .align 4
 cbe3: @SET 4,E
-	cb_set_bit sc0,4,E_reg
+	cb_set_bit 4,E_reg
 	get_op
 
 .align 4
 cbe4: @SET 4,H
-	cb_set_bit sc0,4,H_reg
+	cb_set_bit 4,H_reg
 	get_op
 
 .align 4
 cbe5: @SET 4,L
-	cb_set_bit sc0,4,L_reg
+	cb_set_bit 4,L_reg
 	get_op
 
 .align 4
@@ -3420,37 +3358,37 @@ cbe6: @SET 4,(HL)
 
 .align 4
 cbe7: @SET 4,A
-	cb_set_bit sc0,4,A_reg
+	cb_set_bit 4,A_reg
 	get_op
 
 .align 4
 cbe8: @SET 5,B
-	cb_set_bit sc0,5,B_reg
+	cb_set_bit 5,B_reg
 	get_op
 
 .align 4
 cbe9: @SET 5,C
-	cb_set_bit sc0,5,C_reg
+	cb_set_bit 5,C_reg
 	get_op
 
 .align 4
 cbea: @SET 5,D
-	cb_set_bit sc0,5,D_reg
+	cb_set_bit 5,D_reg
 	get_op
 
 .align 4
 cbeb: @SET 5,E
-	cb_set_bit sc0,5,E_reg
+	cb_set_bit 5,E_reg
 	get_op
 
 .align 4
 cbec: @SET 5,H
-	cb_set_bit sc0,5,H_reg
+	cb_set_bit 5,H_reg
 	get_op
 
 .align 4
 cbed: @SET 5,L
-	cb_set_bit sc0,5,L_reg
+	cb_set_bit 5,L_reg
 	get_op
 
 .align 4
@@ -3459,37 +3397,37 @@ cbee: @SET 5,(HL)
 
 .align 4
 cbef: @SET 5,A
-	cb_set_bit sc0,5,A_reg
+	cb_set_bit 5,A_reg
 	get_op
 
 .align 4
 cbf0: @SET 6,B
-	cb_set_bit sc0,6,B_reg
+	cb_set_bit 6,B_reg
 	get_op
 
 .align 4
 cbf1: @SET 6,C
-	cb_set_bit sc0,6,C_reg
+	cb_set_bit 6,C_reg
 	get_op
 
 .align 4
 cbf2: @SET 6,D
-	cb_set_bit sc0,6,D_reg
+	cb_set_bit 6,D_reg
 	get_op
 
 .align 4
 cbf3: @SET 6,E
-	cb_set_bit sc0,6,E_reg
+	cb_set_bit 6,E_reg
 	get_op
 
 .align 4
 cbf4: @SET 6,H
-	cb_set_bit sc0,6,H_reg
+	cb_set_bit 6,H_reg
 	get_op
 
 .align 4
 cbf5: @SET 6,L
-	cb_set_bit sc0,6,L_reg
+	cb_set_bit 6,L_reg
 	get_op
 
 .align 4
@@ -3498,37 +3436,37 @@ cbf6: @SET 6,(HL)
 
 .align 4
 cbf7: @SET 6,A
-	cb_set_bit sc0,6,A_reg
+	cb_set_bit 6,A_reg
 	get_op
 
 .align 4
 cbf8: @SET 7,B
-	cb_set_bit sc0,7,B_reg
+	cb_set_bit 7,B_reg
 	get_op
 
 .align 4
 cbf9: @SET 7,C
-	cb_set_bit sc0,7,C_reg
+	cb_set_bit 7,C_reg
 	get_op
 
 .align 4
 cbfa: @SET 7,D
-	cb_set_bit sc0,7,D_reg
+	cb_set_bit 7,D_reg
 	get_op
 
 .align 4
 cbfb: @SET 7,E
-	cb_set_bit sc0,7,E_reg
+	cb_set_bit 7,E_reg
 	get_op
 
 .align 4
 cbfc: @SET 7,H
-	cb_set_bit sc0,7,H_reg
+	cb_set_bit 7,H_reg
 	get_op
 
 .align 4
 cbfd: @SET 7,L
-	cb_set_bit sc0,7,L_reg
+	cb_set_bit 7,L_reg
 	get_op
 
 .align 4
@@ -3537,7 +3475,7 @@ cbfe: @SET 7,(HL)
 
 .align 4
 cbff: @SET 7,A
-	cb_set_bit sc0,7,A_reg
+	cb_set_bit 7,A_reg
 	get_op
 
 
