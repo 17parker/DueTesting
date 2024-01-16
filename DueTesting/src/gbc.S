@@ -1168,11 +1168,8 @@ x2e: @LD L,d8
 	get_op
 	 
 .align 4
-x2f: @CPL - USED FOR TIMING TESTS
-	nop
-	bkpt 100
-	nop
-	bkpt 101
+x2f: @CPL
+
 	 
 .align 4
 x30: @JR NC,r8
@@ -2041,7 +2038,7 @@ xd2: @JP NC,a16
 
 	 
 .align 4
-xd3: @unused
+xd3: @unused - USED FOR TIMING TESTS
 
 	 
 .align 4
