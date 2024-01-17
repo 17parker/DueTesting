@@ -424,7 +424,7 @@ sc2 .req r12
 @ bbbb aaaa
 .macro cb_swap_r8 regname
 	ldrb sc0,[cpuregs,\regname]
-	eor cpuflags,cpuflags
+	mov cpuflags,0
 	orrs sc0,sc0,sc0, lsl 8
 	lsr sc0,4
 	it eq
@@ -434,7 +434,7 @@ sc2 .req r12
 
 .macro cb_srl_r8 regname
 	ldrb sc0,[cpuregs,\regname]
-	eor cpuflags,cpuflags
+	mov cpuflags,0
 	lsrs sc0,sc0,1
 	it cs						@old bit 0 is moved to carry flag in APSR
 	orrcs cpuflags,cflag_set
@@ -445,7 +445,7 @@ sc2 .req r12
 
 .macro cb_rrc_r8 regname
 	ldrb sc0,[cpuregs,\regname]
-	eor cpuflags,cpuflags
+	mov cpuflags,0
 	lsrs sc0,sc0,1			
 	itt cs
 	orrcs cpuflags,cflag_set
@@ -456,20 +456,49 @@ sc2 .req r12
 .endm
 
 .macro cb_rl_r8 regname
-
+	ldrb sc0,[cpuregs,\regname]
+	mov cpuflags,0
+	lsls sc0,1
+	it eq
+	orreq cpuflags,zflag_set
+	tst cpuflags,cflag_set
+	it ne
+	orrne sc0,1
+	tst sc0,0x100
+	it ne
+	orrne cpuflags,cflag_set
+	strb sc0,[cpuregs,\regname]
 .endm
 
 .macro cb_rr_r8 regname
-
+	ldrb sc0,[cpuregs,\regname]
+	mov cpuflags,0
+	tst cpuflags,cflag_set
+	it ne
+	orrne sc0,0x100
+	lsrs sc0,1
+	it eq
+	orreq cpuflags,zflag_set
+	it cs
+	orrcs cpuflags,cflag_set
+	strb sc0,[cpuregs,\regname]
 .endm
 
 .macro cb_sla_r8 regname
-
+	ldrb sc0,[cpuregs,\regname]
+	mov cpuflags,0
+	lsls sc0,1
+	it eq
+	orreq cpuflags,zflag_set
+	tst sc0,0x100
+	it ne
+	orrne cpuflags,cflag_set
+	strb sc0,[cpuregs,\regname]
 .endm
 
 .macro cb_sra_r8 regname
 	ldrb sc0,[cpuregs,\regname]
-	eor cpuflags,cpuflags
+	mov cpuflags,0
 	lsrs sc0,sc0,1					@moves old bit 0 to carry flag in APSR
 	it cs							@carry flag = old b0
 	orrcs cpuflags,cflag_set
