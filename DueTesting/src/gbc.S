@@ -844,7 +844,7 @@ cb_lbl:
 @ OPTIMIZATIONS:
 @ For operations that load CPU registers, if the registers are adjacent, I can do one ldrh instead of two ldrb
 @ Ldr/strs are 1 cycle faster if they are staggered
-@ In some cases, its faster to clear all cpu flags at once and OR them if necesssary (the final flag check will just be an it instead of ite)
+@ In some cases, its faster to clear all cpu flags at once and OR them if necesssary
 
 @ Does anything special happen when H/L are written to
 
@@ -942,10 +942,10 @@ x07: @RLCA - Rotate A left, old bit 7 to bit 0 and carry. Z, N, H cleared
 	ldrb sc0,[cpuregs,A_reg] @sc0 holds register A
 	tst sc0,0x80
 	lsl sc0,1
-	eor cpuflags,cpuflags		 @clear all flags, set c as necessary
-	itt ne
+	itte ne
 	orrne sc0,1
-	orrne cpuflags,cflag_set
+	movne cpuflags,cflag_set
+	moveq cpuflags,0
 	strb sc0,[cpuregs,A_reg]
 	get_op
 
@@ -1004,7 +1004,15 @@ x0e: @LD C,d8 - no flags
 	get_op
 
 .align 4
-x0f: @RRCA
+x0f: @RRCA - rotate right register A, include carry bit
+ldrb sc0,[cpuregs,A_reg]
+lsrs sc0,1
+itte cs
+orrcs sc0,0x80
+movcs cpuflags,cflag_set
+movcc cpuflags,0
+strb sc0,[cpuregs,A_reg]
+get_op
 
 .align 4
 x10: @STOP 0 - clock, oscillator, lcd controller are stopped, cancelled by reset signal
@@ -1046,10 +1054,24 @@ x16: @LD D,d8
 	get_op
 	 
 .align 4
-x17: @RLA
+x17: @RLA - left rotate A through the carry flag
+	ldrb sc0,[cpuregs,A_reg]
+	lsl sc0,1
+	tst cpuflags,cflag_set
+	it ne
+	orrne sc0,1
+	tst sc0,0x100
+	ite ne
+	orrne cpuflags,cflag_set
+	moveq cpuflags,0
+	strb sc0,[cpuregs,A_reg]
+	get_op
 	 
 .align 4
 x18: @JR r8
+	get_1_arg_signed
+	add progc,args
+	get_op
 	 
 .align 4
 x19: @ADD HL,DE
@@ -1083,14 +1105,23 @@ x1e: @LD E,d8
 	 
 .align 4
 x1f: @RRA
-
+	ldrb sc0,[cpuregs,A_reg]
+	tst cpuflags,cflag_set
+	it ne
+	orrne sc0,0x100
+	lsrs sc0,1
+	ite cs
+	movcs cpuflags,cflag_set
+	movcc cpuflags,0
+	strb sc0,[cpuregs,A_reg]
+	get_op
 
 .align 4
 x20: @JR NZ,s8 - jump to (PC + s8) if Zero flag is reset - s8 is SIGNED
 	get_1_arg_signed
 	tst cpuflags,zflag_set
 	it eq
-	addeq progc,progc,args
+	addeq progc,args
 	get_op
 
 .align 4
@@ -1133,11 +1164,14 @@ x27: @DAA
 	 
 .align 4
 x28: @JR Z,r8
-
+	get_1_arg_signed
+	tst cpuflags,zflag_set
+	it ne
+	addne progc,args
+	get_op
 	 
 .align 4
 x29: @ADD HL,HL
-
 
 .align 4
 x2a: @LD A,(HL+)
@@ -1169,11 +1203,19 @@ x2e: @LD L,d8
 	 
 .align 4
 x2f: @CPL
-
+	ldrb sc0,[cpuregs,A_reg]
+	eors sc0,0xff
+	strb sc0,[cpuregs,A_reg]
+	orr cpuflags,(nflag_set | hflag_set)
+	get_op
 	 
 .align 4
 x30: @JR NC,r8
-
+	get_1_arg_signed
+	tst cpuflags,cflag_set
+	it eq
+	addeq progc,args
+	get_op
 	 
 .align 4
 x31: @LD sp,d16 - load immediate into stack pointer
@@ -1195,7 +1237,8 @@ x32: @LD (HL-),A
 	 
 .align 4
 x33: @INC SP
-
+	add stackptr,1
+	get_op
 	 
 .align 4
 x34: @INC (HL)
@@ -1212,11 +1255,18 @@ x36: @LD (HL),d8
 	str_8bit_to_addr
 
 .align 4
-x37: @SCF
+x37: @SCF - Set the carry flag
+	and cpuflags,(hflag_clear & hflag_clear)
+	orr cpuflags,cflag_set
+	get_op
 	 
 .align 4
 x38: @JR C,r8
-
+	get_1_arg_signed
+	tst cpuflags,cflag_set
+	it ne
+	addne progc,args
+	get_op
 	 
 .align 4
 x39: @ADD HL,SP
@@ -1233,7 +1283,8 @@ x3a: @LD A,(HL-)
 	 
 .align 4
 x3b: @DEC SP
-
+	sub stackptr,1
+	get_op
 	 
 .align 4
 x3c: @INC A
@@ -1252,7 +1303,10 @@ x3e: @LD A,d8 - No flags affected
 	get_op
 	 
 .align 4
-x3f: @CCF
+x3f: @CCF - complement carry flag, z left alone, nh cleared, c flipped
+	and cpuflags,~(hflag_set | nflag_set)
+	eor cpuflags,cflag_set
+	get_op
 	 
 .align 4
 x40: @LD B,B
@@ -1885,7 +1939,6 @@ xb5: @OR L
 .align 4
 xb6: @OR (HL)
 
-	 
 .align 4
 xb7: @OR A
 	OR_reg A_reg
@@ -1932,17 +1985,22 @@ xbf: @CP A - I feel like this is too easy, CP A is always going to be 0
 	 
 .align 4
 xc0: @RET NZ
-
+	tst cpuflags,zflag_set
+	itt ne
+	get_opne
+	RET_POP
+	get_op
 	 
 .align 4
 xc1: @POP BC
-
+	POP_reg16 BC_reg
+	get_op
 	 
 .align 4
 xc2: @JP NZ,a16
 	get_2_arg
 	tst cpuflags,zflag_set
-	it eq			@zflag is not set if result of tst is 0
+	it eq			
 	addeq progc,args,cartaddr
 	get_op
 
@@ -1954,18 +2012,25 @@ xc3: @JP a16
 
 .align 4
 xc4: @CALL NZ,a16
-
+	get_2_arg
+	tst cpuflags,zflag_set
+	itt ne
+	get_opne
+	CALL_PUSH
+	add progc,args,cartaddr
+	get_op 
 	 
 .align 4
 xc5: @PUSH BC
-
+	PUSH_reg16 BC_reg
+	get_op
 	 
 .align 4
 xc6: @ADD A,d8
 	get_1_arg
 	ldrb sc0,[cpuregs,A_reg]
 	mov sc2,sc0					@ sc2 holds the pre-op value of A_reg
-	add sc0,args					@ sc0 holds the post-op value
+	add sc0,args				@ sc0 holds the post-op value
 	strb sc0,[cpuregs,A_reg]
 	tst sc0,0x100				@ cflag
 	set_c_eq
@@ -1985,11 +2050,16 @@ xc7: @RST 00H
 	 
 .align 4
 xc8: @RET Z
-
+	tst cpuflags,zflag_set
+	itt eq
+	get_opeq
+	RET_POP
+	get_op
 	 
 .align 4
 xc9: @RET
-
+	RET_POP
+	get_op
 	 
 .align 4
 xca: @JP Z,a16
@@ -2011,15 +2081,42 @@ xcb: @PREFIX CB
 	 
 .align 4
 xcc: @CALL Z,a16
+	get_2_arg
+	tst cpuflags,zflag_set
+	itt eq
+	get_opeq
+	CALL_PUSH
+	add progc,args,cartaddr
+	get_op 
 
-	 
 .align 4
 xcd: @CALL a16 - push addr of next instruction to stack and jump to a16
-
+	get_2_arg
+	CALL_PUSH
+	add progc,args,cartaddr
+	get_op
 	 
 .align 4
 xce: @ADC A,d8
-
+	get_1_arg
+	ldrb sc0,[cpuregs,A_reg]
+	mov sc2,sc0					@ sc2 holds the pre-op value of A_reg
+	add sc0,args				@ sc0 holds the post-op value
+	tst cpuflags,cflag_set
+	it eq
+	addeq sc0,1
+	strb sc0,[cpuregs,A_reg]
+	tst sc0,0x100				@ cflag
+	set_c_eq
+	tst sc0,0xff				@ zflag
+	set_z_eq
+	and sc2,0xf					@ hflag
+	and args,0xf
+	add sc2,args
+	tst sc2, 0x10
+	set_h_eq
+	clear_nflag
+	get_op
 	 
 .align 4
 xcf: @RST 08H
@@ -2027,15 +2124,24 @@ xcf: @RST 08H
 	 
 .align 4
 xd0: @RET NC
-
+	tst cpuflags,cflag_set
+	itt ne
+	get_opne
+	RET_POP
+	get_op
 	 
 .align 4
 xd1: @POP DE
-
+	POP_reg16 DE_reg
+	get_op
 	 
 .align 4
 xd2: @JP NC,a16
-
+	get_2_arg
+	tst cpuflags,cflag_set
+	it eq			
+	addeq progc,args,cartaddr
+	get_op
 	 
 .align 4
 xd3: @unused - USED FOR TIMING TESTS
@@ -2043,15 +2149,37 @@ xd3: @unused - USED FOR TIMING TESTS
 	 
 .align 4
 xd4: @CALL NC,a16
-
+	get_2_arg
+	tst cpuflags,cflag_set
+	itt ne
+	get_opne
+	CALL_PUSH
+	add progc,args,cartaddr
+	get_op 
 	 
 .align 4
 xd5: @PUSH DE
-
+	PUSH_reg16 DE_reg
+	get_op
 	 
 .align 4
 xd6: @SUB d8
-
+	get_1_arg
+	ldrb sc0,[cpuregs,A_reg]
+	mov sc1,sc0
+	subs sc0,args
+	strb sc0,[cpuregs,A_reg]
+	set_z_eq
+	ite mi							@ if the result is negative, this will be true (a borrow happened)
+	andmi cpuflags,cflag_clear		@ the cflag is cleared if a borrow occurred
+	orrpl cpuflags,cflag_set		@ the cflag is set if a borrow did not occur	
+	and sc1,0xf						@ hflag
+	and args,0xf
+	cmp sc1,args
+	ite mi
+	andmi cpuflags,hflag_clear
+	orrpl cpuflags,hflag_set
+	set_nflag
 	 
 .align 4
 xd7: @RST 10H
@@ -2059,29 +2187,63 @@ xd7: @RST 10H
 	 
 .align 4
 xd8: @RET C
-
+	tst cpuflags,cflag_set
+	itt eq
+	get_opeq
+	RET_POP
+	get_op
 	 
 .align 4
-xd9: @RETI
-
+xd9: @RETI - used when an interrupt is exited. Returns interrupt enable flag to previous state
+	@ conditionally re-enable interrupt flag
+	RET_POP
+	get_op
 	 
 .align 4
 xda: @JP C,a16
-
+	get_2_arg
+	tst cpuflags,cflag_set
+	it ne			
+	addne progc,args,cartaddr
+	get_op
 	 
 .align 4
 xdb: @unused
 	 
 .align 4
 xdc: @CALL C,a16
-
+	get_2_arg
+	tst cpuflags,cflag_set
+	itt eq
+	get_opeq
+	CALL_PUSH
+	add progc,args,cartaddr
+	get_op 
 	 
 .align 4
 xdd:@unused
 	 
 .align 4
 xde: @SBC A,d8
-
+	get_1_arg
+	ldrb sc0,[cpuregs,A_reg]
+	mov sc1,sc0
+	tst cpuflags,cflag_set
+	it eq
+	subeq sc0,1
+	subs sc0,args							@ do this subtraction last so I can use it to set flags
+	strb sc0,[cpuregs,A_reg]
+	set_z_eq
+	ite mi									@ if the result is negative, this will be true (a borrow happened)
+	andmi cpuflags,cflag_clear				@ the cflag is cleared if a borrow occurred
+	orrpl cpuflags,cflag_set				@ the cflag is set if a borrow did not occur
+	and sc1,sc1,0xf							@ hflag
+	and args,args,0xf
+	cmp sc1,args
+	ite mi
+	andmi cpuflags,hflag_clear
+	orrpl cpuflags,hflag_set
+	set_nflag
 	 
 .align 4
 xdf: @RST 18H
@@ -2093,7 +2255,8 @@ xe0: @LDH (a8),A
 	 
 .align 4
 xe1: @POP HL
-
+	POP_reg16 HL_reg
+	get_op
 	 
 .align 4
 xe2: @LD (C),A - write to IO port at address (0xFF00 + (C)) the contents of A
@@ -2107,12 +2270,20 @@ xe4:@unused
 	 
 .align 4
 xe5: @PUSH HL
-
+	PUSH_reg16 HL_reg
+	get_op
 	 
 .align 4
 xe6: @AND d8 - Z is set if AND is 0, N is reset, H is set, C is reset
-
-	 
+	get_1_arg
+	ldrb sc0,[cpuregs,A_reg]
+	ands sc0,args
+	strb sc0,[cpuregs,A_reg]
+	ite eq
+	moveq cpuflags,(zflag_set | hflag_set)
+	movne cpuflags,hflag_set
+	get_op
+	
 .align 4
 xe7: @RST 20H
 
@@ -2122,8 +2293,10 @@ xe8: @ADD SP,r8
 	
 	 
 .align 4
-xe9: @JP (HL)
-
+xe9: @JP HL
+	ldrh sc0,[cpuregs,HL_reg]
+	add progc,cartaddr,sc0
+	get_op
 	 
 .align 4
 xea: @LD (a16),A - put A into address (a16) addr fix
@@ -2144,7 +2317,14 @@ xed:@unused
 	 
 .align 4
 xee: @XOR d8
-
+	get_1_arg
+	ldrb sc0,[cpuregs,A_reg]
+	eors sc0,args
+	strb sc0,[cpuregs,A_reg]
+	ite eq
+	moveq cpuflags,zflag_set
+	movne cpuflags,0
+	get_op
 	 
 .align 4
 xef: @RST 28H
@@ -2155,7 +2335,8 @@ xf0: @LDH A,(a8) - store the address (0xFF00 + a8) into A - I/O DATA
 
 .align 4
 xf1: @POP AF
-
+	POP_reg16 AF_reg
+	get_op
 	 
 .align 4
 xf2: @LD A,(C) - Load (0xFF00 + (C)) into reg A (read i/o into A)
@@ -2171,11 +2352,19 @@ xf4:@unused
 	 
 .align 4
 xf5: @PUSH AF
-
+	PUSH_reg16 AF_reg
+	get_op
 	 
 .align 4
 xf6: @OR d8
-
+	get_1_arg
+	ldrb sc0,[cpuregs,A_reg]
+	orrs sc0,args
+	strb sc0,[cpuregs,A_reg]
+	ite eq
+	moveq cpuflags,zflag_set
+	movne cpuflags,0
+	get_op
 	 
 .align 4
 xf7: @RST 30H

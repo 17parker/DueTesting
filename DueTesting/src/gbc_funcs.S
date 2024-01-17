@@ -38,6 +38,11 @@ sc2 .req r12
 	ldreq pc,[xlbl_addr,gbc_op,lsl 2]
 .endm
 
+.macro get_opne
+	ldrbne gbc_op,[progc],1
+	ldrne pc,[xlbl_addr,gbc_op,lsl 2]
+.endm
+
 @@@ CPU FLAGS MACROS
 .equ zflag_clear, 0x7f
 .equ zflag_set, 0x80
@@ -113,7 +118,6 @@ sc2 .req r12
 @@@@@@@@@@@@@ NOTES @@@@@@@@@@@@@@
 @ Only when a number is added to itself, the hflag can be checked by testing the result with 0x10
 
-
 .macro set_z_eq
 	ite eq
 	orreq cpuflags,zflag_set
@@ -140,6 +144,30 @@ sc2 .req r12
 	ldrb sc0,[cpuregs,\srcreg]
 	strb sc0,[cpuregs,\dstreg]
 .endm
+
+@@@@@@@@ MISC OPS @@@@@@@@
+
+.macro PUSH_reg16 regname
+	ldrh sc0,[cpuregs,\regname]
+	strh sc0,[stackptr],-2
+.endm
+
+.macro POP_reg16 regname
+	ldrh sc0,[stackptr],2
+	strh sc0,[cpuregs,\regname]
+.endm
+
+@ push a register (sc0, sc1, etc.) 
+.macro CALL_PUSH 
+	strh progc,[stackptr],-2
+.endm
+
+.macro RET_POP
+	ldrh progc,[stackptr],2
+	add progc,cartaddr
+.endm
+
+@@@@@@@@ ARITHMETIC OPERATIONS @@@@@@@@
 
 .macro INC_reg8 regname
 	ldrb sc0,[cpuregs,\regname] @ sc0 has previous value of reg
@@ -287,6 +315,10 @@ sc2 .req r12
 	set_nflag
 .endm
 
+
+
+@@@@@@@@ BITWISE OPERATIONS @@@@@@@@
+
 .macro AND_reg regname
 	ldrb sc0,[cpuregs,A_reg]
 	ldrb sc1,[cpuregs,\regname]
@@ -298,11 +330,23 @@ sc2 .req r12
 .endm
 
 .macro OR_reg regname @ Z conditionally set, nhc cleared
-
+	ldrb sc0,[cpuregs,A_reg]
+	ldrb sc1,[cpuregs,\regname]
+	orrs sc0,sc1	@ sc0 has the result of the OR
+	strb sc0,[cpuregs,A_reg]
+	ite eq
+	moveq cpuflags,zflag_set
+	movne cpuflags,0
 .endm
 
 .macro XOR_reg regname @ Z conditionally set, nhc cleared
-
+	ldrb sc0,[cpuregs,A_reg]
+	ldrb sc1,[cpuregs,\regname]
+	eors sc0,sc1	@ sc0 has the result of the XOR
+	strb sc0,[cpuregs,A_reg]
+	ite eq
+	moveq cpuflags,zflag_set
+	movne cpuflags,0
 .endm
 
 .macro add_hl_r16 offset
