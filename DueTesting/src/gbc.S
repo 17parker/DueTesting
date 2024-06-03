@@ -1,7 +1,9 @@
 .syntax unified
 
+#include "gbc_funcs.S"
+
 #define debug_bkpts					@ this puts bkpt in get_op
-@#define debug_mem_catch_jmp_tbl		@ this puts bkpt in the read/write jump tables
+/**#define debug_mem_catch_jmp_tbl		 this puts bkpt in the read/write jump tables**/
 @#define debug_mem_catch			@ this jumps exection to routine before continuing execution (not implemented)
 @#define debug_ld_A_rr				@ this puts known value into sc4 when exiting ld_A_rr
 @#define debug_ld_ra16_d8			@ this puts known value into sc4 when exiting @ld_ra16_d8
@@ -20,44 +22,32 @@
 .endm
 #endif
 
-.include "src/gbc_funcs.S"
+
 
 .bss
 oam: .space 160,0
 io: .space 128,0
 hram: .space 127,0
 ier: .byte 0
+
+.data
 .align 4
 mem_map: 
-wram0: .space 0x1000
-vram0: .space 0x2000
-vram1: .space 0x2000 
-wram1: .space 0x1000 
+wram: .space 0x2000
+vram: .space 0x2000
 extram: .word =0x6100a000
-vramn: .word vram0
-wramn: .word wram1
-wram2: .space 0x1000
-wram3: .space 0x1000
-wram4: .space 0x1000
-wram5: .space 0x1000
-wram6: .space 0x1000
-wram7: .space 0x1000
 @pixels: .space 46080
 
 
 cpu_regs_addr: .space 20
 @NOTE: because my CPU flags are in a register, the F register here is never updated
-@C B BC E D DE L H HL F A AF  WRAM0      WRAMn      VRAMn      scratch_reg
+@C B BC E D DE L H HL F A AF  wram      vram      scratch_reg
 @Reg order:
-@0 1 0  2 3 2  4 5 4  6 7 6   8          12			16		   20
+@0 1 0  2 3 2  4 5 4  6 7 6   8          12			16
 
 .data
 
 .text
-
-#define wram0_addr [cpuregs,wram0_reg]
-#define wramn_addr [cpuregs,wramn_reg]
-#define vramn_addr [cpuregs,vramn_reg]
 
 @@@ NOTES @@@
 @@@ parameters: address and destination to be set by the caller
@@ -74,18 +64,6 @@ cpu_regs_addr: .space 20
 
 .align 4
 cart_read:
-#ifdef debug_mem_catch_jmp_tbl
-	nop
-	bkpt 45
-	nop
-#endif
-	ldrb mem_catch_param_sc,[cartaddr,mem_catch_param_addr]	@ load from cart
-	strb mem_catch_param_sc,[cpuregs,mem_catch_param_regO]	@ store to dst
-#ifdef debug_mem_catch_jmp_tbl
-	nop
-	bkpt 46
-	nop
-#endif
 	get_op
 
 .align 4
@@ -109,50 +87,11 @@ extram_write:
 	get_op
 
 .align 4
-wram0_read:
-#ifdef debug_mem_catch_jmp_tbl
-	nop
-	bkpt 55
-	nop
-#endif
-	ldr sc2,wram0_addr				@ get the base address for wram0
-	sub mem_catch_param_addr,0xc000	@ make the address 0-based
-	ldr mem_catch_param_sc,[sc2,mem_catch_param_addr]			@ load the data
-	str mem_catch_param_sc,[cpuregs,mem_catch_param_regO]		@ store in destination
-#ifdef debug_mem_catch_jmp_tbl
-	nop
-	bkpt 56
-	nop
-#endif
+wram_read:
 	get_op
 
 .align 4
-wram0_write:
-	ldr sc2,wram0_addr				@ get the base address for wram0
-	sub mem_catch_param_addr,0xc000	@ make the address 0-based
-	get_op
-
-.align 4
-wramn_read:
-#ifdef debug_mem_catch_jmp_tbl
-	nop
-	bkpt 65
-	nop
-#endif
-	ldr sc2,wramn_addr				@ get the base address for wram0
-	sub mem_catch_param_addr,0xd000	@ make the address 0-based
-	ldr mem_catch_param_sc,[sc2,mem_catch_param_addr]			@ load the data
-	str mem_catch_param_sc,[cpuregs,mem_catch_param_regO]		@ store in destination
-#ifdef debug_mem_catch_jmp_tbl
-	nop
-	bkpt 66
-	nop
-#endif
-	get_op
-
-.align 4
-wramn_write:
-	ldr sc2,wramn_addr
+wram_write:
 	get_op
 
 .align 4
@@ -203,123 +142,6 @@ hlram_write:
 
 @@@@@@@@ MEM CATCH MACROS @@@@@@@@
 
-@ gets 2 arguments from the cart and puts them in the addr register
-.macro get_2_arg_mem_catch_addr
-	ldrh mem_catch_param_addr,[progc],2
-.endm
-
-@ gets one arg from the cart and puts it in the data register
-.macro get_1_arg_mem_catch_data
-	ldrb mem_catch_param_data,[progc],1
-.endm
-
-@ load 8 bits from address into an 8-bit cpu register
-.macro ld_8bit_to_reg
-	@ check if read is from ier
-	add mem_catch_param_sc,mem_catch_param_addr,1
-	tst mem_catch_param_sc,0x10000
-	it ne
-	ldrne pc,[mem_catch_read_reg,20 * 4]
-
-	@ check if read is from upper
-	cmp mem_catch_param_addr,0xfe00
-	ittt pl
-	ubfxpl mem_catch_param_sc,mem_catch_param_addr,7,2	@ get the offset into the upper table
-	addpl mem_catch_param_sc,16							@ add 16 to the offset
-	ldrpl pc,[mem_catch_read_reg,mem_catch_param_sc,lsl 2] @ make the jump
-
-	@ read is from lower
-	lsr mem_catch_param_sc,mem_catch_param_addr,12				@ get the offset into the jump table
-	ldr pc,[mem_catch_read_reg,mem_catch_param_sc,lsl 2]	@ make the jump
-.endm
-
-.macro str_8bit_to_addr
-	@ check if write is to ier
-	add mem_catch_param_sc,mem_catch_param_addr,1
-	tst mem_catch_param_sc,0x10000
-	it ne
-	ldrne pc,[mem_catch_write_reg,20 * 4]
-
-	@ check if write is to upper
-	cmp mem_catch_param_addr,0xfe00
-	ittt pl
-	ubfxpl mem_catch_param_sc,mem_catch_param_addr,7,2	@ get the offset into the upper table
-	addpl mem_catch_param_sc,16							@ add 16 to the offset
-	ldrpl pc,[mem_catch_write_reg,mem_catch_param_sc,lsl 2] @ make the jump
-
-	@ write is to lower
-	lsr mem_catch_param_sc,mem_catch_param_addr,12				@ get the offset into the jump table
-	ldr pc,[mem_catch_write_reg,mem_catch_param_sc,lsl 2]	@ make the jump
-.endm
-
-
-.align 4
-wrambanks:
-	.word wram0
-	.word wram1
-	.word wram2
-	.word wram3
-	.word wram4
-	.word wram5
-	.word wram6
-	.word wram7
-vrambanks:
-	.word vram0
-	.word vram1
-
-.align 4
-mem_catch_read_table:
-lower_mem_catch_read_table:
-	.word cart_read + 1
-	.word cart_read + 1
-	.word cart_read + 1
-	.word cart_read + 1
-	.word cart_read + 1
-	.word cart_read + 1
-	.word cart_read + 1
-	.word cart_read + 1
-	.word vram_read + 1
-	.word vram_read + 1
-	.word extram_read + 1	@ index 10
-	.word extram_read + 1
-	.word wram0_read + 1
-	.word wramn_read + 1
-	.word echo_read + 1
-	.word echo_read + 1		@ index 15
-upper_mem_catch_read_table:
-	.word oam_read + 1		@ index 16
-	.word oam_read + 1
-	.word io_read + 1
-	.word hlram_read + 1
-	.word ier_read + 1		@ index 20
-
-
-.align 4
-mem_catch_write_table:
-lower_mem_catch_write_table:
-	.word cart_write + 1
-	.word cart_write + 1
-	.word cart_write + 1
-	.word cart_write + 1
-	.word cart_write + 1
-	.word cart_write + 1
-	.word cart_write + 1
-	.word cart_write + 1
-	.word vram_write + 1
-	.word vram_write + 1
-	.word extram_write + 1	@ index 10
-	.word extram_write + 1
-	.word wram0_write + 1
-	.word wramn_write + 1
-	.word echo_write + 1
-	.word echo_write + 1	@ index 15
-upper_mem_catch_write_table:
-	.word oam_write + 1		@ index 16
-	.word oam_write + 1
-	.word io_write + 1
-	.word hlram_write + 1
-	.word ier_write + 1		@ index 20
-	
 
 .align 4
 x_lbl:
@@ -855,30 +677,27 @@ cb_lbl:
 @ Half-Carry flag:
 @ https://robdor.com/2016/08/10/gameboy-emulator-half-carry-flag/
 
-.global gbc
-
 .align 4
+.global gbc
 gbc:
 	mov sc0,0							@ r0 - working reg
 	ldr progc,=0x60000100				@ r1 - pc
-	ldr stackptr,=wram0					@ r2 - stack pointer
+	ldr stackptr,=wram					@ r2 - stack pointer
 	ldr cpuregs,=cpu_regs_addr			@ r3 - cpu registers address
 	mov args,0							@ r4 - holds the arguments for opcodes, if they have any
 	mov sc1,0							@ r5 - working reg
 	mov gbc_op,0						@ r6 - holds current OP
 	mov cpuflags,0						@ r7 - cpu flags: 0bZNHCxxxx
-	ldr mem_catch_read_reg,=mem_catch_read_table		@ r8 - mem catch read routines
-	ldr mem_catch_write_reg,=mem_catch_write_table		@ r9 - mem catch write routines
+	mov sc4,0							@ r8 - free
+	mov sc5,0							@ r9 - free
 	ldr cartaddr,=0x60000000			@ r10 - holds cartridge base address
 	ldr xlbl_addr,=x_lbl				@ r11 - holds x jump table base address
 	mov sc2,0							@ r12 - working reg
 
-	ldr sc0,=vram0
-	str sc0,[cpuregs,vramn_reg]
-	ldr sc0,=wram0
-	str sc0,[cpuregs,wram0_reg]
-	ldr sc0,=wram1
-	str sc0,[cpuregs,wramn_reg]
+	ldr sc0,=vram
+	str sc0,[cpuregs,vram_reg]
+	ldr sc0,=wram
+	str sc0,[cpuregs,wram_reg]
 
 	@ reset the system
 	mov sc0,0	
@@ -910,9 +729,7 @@ x01: @LD BC,d16 - no flags
 
 .align 4
 x02: @LD (BC),A - Load to the absolute address (BC), data from the 8-bit A register
-	ldrh mem_catch_param_addr,[cpuregs,BC_reg]
-	ldrb mem_catch_param_data,[cpuregs,A_reg] 
-	str_8bit_to_addr
+	get_op	
 
 .align 4
 x03: @INC BC - no flags
@@ -960,27 +777,7 @@ x09: @ADD HL,BC - z ignored, n cleared, h, c conditionally set.
 
 .align 4
 x0a: @LD A,(BC) - Load to the accumulator, data from the address specified by (BC)
-	mov mem_catch_param_regO,A_reg				@ set the target register
-	ldr mem_catch_param_addr,[cpuregs,BC_reg]	@ get the target address
-
-	@expanded macro for debugging
-	@ check if read is from ier
-	add mem_catch_param_sc,mem_catch_param_addr,1
-	tst mem_catch_param_sc,0x10000
-	it ne
-	ldrne pc,[mem_catch_read_reg,20 * 4]
-
-	@ check if read is from upper
-	cmp mem_catch_param_addr,0xfe00
-	ittt pl
-	ubfxpl mem_catch_param_sc,mem_catch_param_addr,7,2	@ get the offset into the upper table
-	addpl mem_catch_param_sc,16							@ add 16 to the offset
-	ldrpl pc,[mem_catch_read_reg,mem_catch_param_sc,lsl 2] @ make the jump
-
-	@ read is from lower
-	lsr mem_catch_param_sc,mem_catch_param_addr,12			@ get the offset into the jump table
-	ldr pc,[mem_catch_read_reg,mem_catch_param_sc,lsl 2]	@ make the jump
-	@ mem catch calls get_op
+	get_op
 
 .align 4
 x0b: @DEC BC - no flags
@@ -1028,9 +825,7 @@ x11: @LD DE, d16
  
 .align 4
 x12: @LD (DE),A
-	ldrh mem_catch_param_addr,[cpuregs,DE_reg]
-	ldrb mem_catch_param_data,[cpuregs,A_reg] 
-	str_8bit_to_addr
+	get_op
 	 
 .align 4
 x13: @INC DE
@@ -1078,9 +873,7 @@ x19: @ADD HL,DE
 	 
 .align 4
 x1a: @LD A,(DE)
-	mov mem_catch_param_regO,A_reg				@ set the target register
-	ldr mem_catch_param_addr,[cpuregs,DE_reg]	@ get the target address
-	ld_8bit_to_reg
+	get_op
 
 .align 4
 x1b: @DEC DE
@@ -1132,10 +925,7 @@ x21: @LD HL,d16 - no flags
 
 .align 4
 x22: @LD (HL+),A - Same as LD (HL),A - INC HL
-	ldrh mem_catch_param_addr,[cpuregs,HL_reg]
-	ldrb mem_catch_param_data,[cpuregs,A_reg] 
-	INC_reg16 HL_reg
-	str_8bit_to_addr
+	get_op
 
    
 .align 4
@@ -1175,10 +965,7 @@ x29: @ADD HL,HL
 
 .align 4
 x2a: @LD A,(HL+)
-	mov mem_catch_param_regO,A_reg
-	ldr mem_catch_param_addr,[cpuregs,HL_reg]
-	INC_reg16 HL_reg
-	ld_8bit_to_reg
+	get_op
 	 
 .align 4
 x2b: @DEC HL
@@ -1219,7 +1006,7 @@ x30: @JR NC,r8
 	 
 .align 4
 x31: @LD sp,d16 - load immediate into stack pointer
-	@This needs a mem catch - I cant really assume the stack is going to be in WRAM0
+	@This needs a mem catch - I cant really assume the stack is going to be in wram
 	get_2_arg
 	sub args,0xc000 @need to subtract c000 because GBC I need the offset into wram
 	cmp args,0x1000
@@ -1229,10 +1016,7 @@ x31: @LD sp,d16 - load immediate into stack pointer
 
 .align 4
 x32: @LD (HL-),A
-	ldrh mem_catch_param_addr,[cpuregs,HL_reg]
-	ldrb mem_catch_param_data,[cpuregs,A_reg] 
-	DEC_reg16 HL_reg
-	str_8bit_to_addr
+	get_op
 
 	 
 .align 4
@@ -1250,9 +1034,7 @@ x35: @DEC (HL)
 	 
 .align 4
 x36: @LD (HL),d8
-	get_1_arg_mem_catch_data
-	ldrh mem_catch_param_addr,[cpuregs,HL_reg]
-	str_8bit_to_addr
+	get_op
 
 .align 4
 x37: @SCF - Set the carry flag
@@ -1274,10 +1056,7 @@ x39: @ADD HL,SP
 	 
 .align 4
 x3a: @LD A,(HL-)
-	mov mem_catch_param_regO,A_reg
-	ldr mem_catch_param_addr,[cpuregs,HL_reg]
-	DEC_reg16 HL_reg
-	ld_8bit_to_reg
+	get_op
 
 .ltorg
 	 
@@ -1339,9 +1118,7 @@ x45: @LD B,L
 	 
 .align 4
 x46: @LD B,(HL)
-	mov mem_catch_param_regO,B_reg
-	ldr mem_catch_param_addr,[cpuregs,HL_reg]
-	ld_8bit_to_reg
+	get_op
 	 
 .align 4
 x47: @LD B,A
@@ -1379,9 +1156,7 @@ x4d: @LD C,L
 	 
 .align 4
 x4e: @LD C,(HL)
-	mov mem_catch_param_regO,C_reg
-	ldr mem_catch_param_addr,[cpuregs,HL_reg]
-	ld_8bit_to_reg
+	get_op
 	 
 .align 4
 x4f: @LD C,A
@@ -1419,9 +1194,7 @@ x55: @LD D,L
 	 
 .align 4
 x56: @LD D,(HL)
-	mov mem_catch_param_regO,D_reg
-	ldr mem_catch_param_addr,[cpuregs,HL_reg]
-	ld_8bit_to_reg
+	get_op
 	 
 .align 4
 x57: @LD D,A
@@ -1459,9 +1232,7 @@ x5d: @LD E,L
 	 
 .align 4
 x5e: @LD E,(HL)
-	mov mem_catch_param_regO,E_reg
-	ldr mem_catch_param_addr,[cpuregs,HL_reg]
-	ld_8bit_to_reg
+	get_op
 	 
 .align 4
 x5f: @LD E,A
@@ -1499,9 +1270,7 @@ x65: @LD H,L
 	 
 .align 4
 x66: @LD H,(HL)
-	mov mem_catch_param_regO,H_reg
-	ldr mem_catch_param_addr,[cpuregs,HL_reg]
-	ld_8bit_to_reg
+	get_op
 	 
 .align 4
 x67: @LD H,A
@@ -1539,9 +1308,7 @@ x6d: @LD L,L
 	 
 .align 4
 x6e: @LD L,(HL)
-	mov mem_catch_param_regO,L_reg
-	ldr mem_catch_param_addr,[cpuregs,HL_reg]
-	ld_8bit_to_reg
+	get_op
 
 .align 4
 x6f: @LD L,A
@@ -1551,49 +1318,37 @@ x6f: @LD L,A
 
 .align 4
 x70: @LD (HL),B
-	ldrh mem_catch_param_addr,[cpuregs,HL_reg]
-	ldrb mem_catch_param_data,[cpuregs,B_reg]
-	str_8bit_to_addr
+	get_op
 	
 .ltorg
 	
 .align 4
 x71: @LD (HL),C
-	ldrh mem_catch_param_addr,[cpuregs,HL_reg]
-	ldrb mem_catch_param_data,[cpuregs,C_reg]
-	str_8bit_to_addr
+	get_op
 	 
 .ltorg
 
 .align 4
 x72: @LD (HL),D
-	ldrh mem_catch_param_addr,[cpuregs,HL_reg]
-	ldrb mem_catch_param_data,[cpuregs,D_reg]
-	str_8bit_to_addr
+	get_op
 	 
 
 
 .align 4
 x73: @LD (HL),E
-	ldrh mem_catch_param_addr,[cpuregs,HL_reg]
-	ldrb mem_catch_param_data,[cpuregs,E_reg]
-	str_8bit_to_addr
+	get_op
 
 .ltorg 
 
 .align 4
 x74: @LD (HL),H
-	ldrh mem_catch_param_addr,[cpuregs,HL_reg]
-	ldrb mem_catch_param_data,[cpuregs,H_reg]
-	str_8bit_to_addr
+	get_op
  
 .ltorg
 
 .align 4
 x75: @LD (HL),L
-	ldrh mem_catch_param_addr,[cpuregs,HL_reg]
-	ldrb mem_catch_param_data,[cpuregs,L_reg]
-	str_8bit_to_addr
+	get_op
 	 
 .ltorg
 
@@ -1606,9 +1361,7 @@ x76: @HALT - clock stopped, oscillator and lcd controller keep going. cancelled 
 
 .align 4
 x77: @LD (HL),A
-	ldrh mem_catch_param_addr,[cpuregs,HL_reg]
-	ldrb mem_catch_param_data,[cpuregs,A_reg]
-	str_8bit_to_addr
+	get_op
 
 
 .ltorg
@@ -1645,9 +1398,7 @@ x7d: @LD A,L
 	 
 .align 4
 x7e: @LD A,(HL)
-	mov mem_catch_param_regO,A_reg
-	ldr mem_catch_param_addr,[cpuregs,HL_reg]
-	ld_8bit_to_reg
+	get_op
 	 
 .align 4
 x7f: @LD A,A
@@ -2300,9 +2051,7 @@ xe9: @JP HL
 	 
 .align 4
 xea: @LD (a16),A - put A into address (a16) addr fix
-	get_2_arg_mem_catch_addr
-	ldrb mem_catch_param_data,[cpuregs,A_reg]
-	str_8bit_to_addr
+	get_op
 	 
 .ltorg
 
@@ -2380,9 +2129,7 @@ xf9: @LD SP,HL
 	 
 .align 4
 xfa: @LD A,(a16)
-	get_2_arg_mem_catch_addr		@ get the target address
-	mov mem_catch_param_regO,A_reg	@ set the target register
-	ld_8bit_to_reg
+	get_op
 	 
 .align 4
 xfb: @EI

@@ -13,8 +13,8 @@ cpuregs .req r3
 args .req r4
 gbc_op .req r6
 cpuflags .req r7
-mem_catch_read_reg .req r8
-mem_catch_write_reg .req r9
+sc4 .req r8
+sc5 .req r9
 cartaddr .req r10
 xlbl_addr .req r11
 sc0 .req r0
@@ -66,9 +66,8 @@ sc2 .req r12
 .equ DE_reg, 2
 .equ HL_reg, 4
 .equ AF_reg, 6
-.equ wram0_reg, 8
-.equ wramn_reg, 12
-.equ vramn_reg, 16
+.equ wram_reg, 8
+.equ vram_reg, 16
 .equ SC_reg, 20
 
 .macro get_1_arg_signed
