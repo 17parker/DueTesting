@@ -13,8 +13,8 @@ cpuregs .req r3
 args .req r4
 gbc_op .req r6
 cpuflags .req r7
-sc4 .req r8
-sc5 .req r9
+mem_lower_tbl .req r8
+sc4 .req r9
 cartaddr .req r10
 xlbl_addr .req r11
 sc0 .req r0

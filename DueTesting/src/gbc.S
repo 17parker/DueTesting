@@ -23,7 +23,6 @@
 #endif
 
 
-
 .bss
 oam: .space 160,0
 io: .space 128,0
@@ -37,6 +36,7 @@ wram: .space 0x2000
 vram: .space 0x2000
 extram: .word =0x6100a000
 @pixels: .space 46080
+
 
 
 cpu_regs_addr: .space 20
@@ -53,17 +53,11 @@ cpu_regs_addr: .space 20
 @@@ parameters: address and destination to be set by the caller
 @@@ returns: nothing
 
-@ args is r4
-#define mem_catch_param_addr args	
-@ sc0 is r0
-#define mem_catch_param_regO sc0		
-@ sc1 is r5
-#define mem_catch_param_sc sc1
-@ sc2 is r12
-#define mem_catch_param_data sc2
+@@@@@@@@ MEM CATCH MACROS @@@@@@@@
 
 .align 4
 cart_read:
+	
 	get_op
 
 .align 4
@@ -140,8 +134,82 @@ hlram_write:
 	get_op
 
 
-@@@@@@@@ MEM CATCH MACROS @@@@@@@@
+#define cart 0x60000000
+#define extram 0x6100a000
 
+.align 4
+mem_lower_lbl:
+	.word =cart
+	.word =cart
+	.word =cart
+	.word =cart
+	.word =vram
+	.word =vram
+	.word =extram
+	.word =extram
+	.word =wram
+	.word =wram
+
+@@@@@@@@ MEM CATCH DECISION MACROS @@@@@@@@
+
+@ addr - register with the address
+@ data - register with the data
+@ sc - free scratch register
+.macro mem_catch_read addr,sc
+	mov \sc,0xff
+	orr \sc,\sc,\sc, lsl 8
+	teq \addr,\sc
+	beq ier_read\@
+	subs \sc,\addr,0xfe00
+	itt mi
+	ubfxmi \sc,\addr,13,3
+	ldrmi pc,[mem_read_lower_tbl,\sc, lsl 2]
+
+
+ier_read\@:
+	get_op	
+.endm
+
+@ addr - register with the address
+@ data - register with the data
+@ sc - free scratch register
+.macro mem_catch_write addr,data,sc
+
+.endm
+
+
+@ For instructions in the format "LD A, (r16)"
+@ addr - address to read from
+@ cpureg - cpu register numer
+@ sc - scratch register
+@@@THIS WONT WORK EBCAUSE SOME ADDRESS RANGES ARE MORE THAN 0x1000 LARGE (like vram)
+.macro mem_read_rA_r16 addr,cpureg,sc,sc2
+	mov \sc2,0xff
+	orr \sc2,\sc2,\sc2, lsl 8	@sc2 contains 0xffff
+	teq \addr,\sc2				@check if addr is ier
+	beq ier_read\@
+	subs \sc,\addr,0xfe00	@sc contains (addr - 0xfe00)
+	it pl					@upper section of memory
+	bpl upper\@
+	ubfx \sc,\addr,13,3		@sc contains the offset into the address table
+	ldr \sc,[mem_lower_tbl,\sc, lsl 2]	@sc contains the base memory address from the table
+	cmp \addr,0x8000		@if the address is in the cart, leave the address alone, otherwise get the offset
+	it pl
+	andpl \addr,\addr,\sc2, lsr 4 @remove the upper 4 bits - addr contains the address offset
+	ldrb \sc2,[\sc,\addr]		  
+	strb \sc2,[cpuregs,A_reg]
+	get_op
+
+upper\@:
+	get_op
+
+ier_read\@:
+	get_op
+
+.endm
+
+#undef cart
+#undef extram
 
 .align 4
 x_lbl:
@@ -688,8 +756,8 @@ gbc:
 	mov sc1,0							@ r5 - working reg
 	mov gbc_op,0						@ r6 - holds current OP
 	mov cpuflags,0						@ r7 - cpu flags: 0bZNHCxxxx
-	mov sc4,0							@ r8 - free
-	mov sc5,0							@ r9 - free
+	ldr mem_lower_tbl,=mem_lower_lbl		@ r8 - mem lower table addr
+	mov sc4,0							@ r9 - free
 	ldr cartaddr,=0x60000000			@ r10 - holds cartridge base address
 	ldr xlbl_addr,=x_lbl				@ r11 - holds x jump table base address
 	mov sc2,0							@ r12 - working reg
@@ -777,6 +845,8 @@ x09: @ADD HL,BC - z ignored, n cleared, h, c conditionally set.
 
 .align 4
 x0a: @LD A,(BC) - Load to the accumulator, data from the address specified by (BC)
+	ldrh sc0,[cpuregs,BC_reg]
+	mem_read_rA_r16 sc0,BC_reg,sc1,sc2
 	get_op
 
 .align 4
