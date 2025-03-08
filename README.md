@@ -1,4 +1,4 @@
-The Gamedue color is back in a new repo with a horrible name! (I got a new computer, and I was having a lot of trouble with my debugger for some reason. Turns out, it was something with the solution files and it was easier to create an entire new project & repo)
+The Gamedue color is back in a new repo with a horrible name! (I got a new computer, and I was having a lot of trouble with my debugger and it was easier to create an entire new project & repo)
 
 The goal is to have the board run a game directly from an official cart via its 8-bit memory bus and 16 address pins. At the moment, it reads from the cartridge, it can dump the contents, and only a fraction of the opcodes are successfully interpreted.
 
