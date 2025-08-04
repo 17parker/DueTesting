@@ -9,6 +9,17 @@ extern "C" void gbc(void);
 	I'm not using the NAND Flash Controller, so I get another 4,224 bytes of SRAM
 	That starts at address 0x2010 0000
 	Loading/storing addresses is relatively expensive, so that might be good for DMA stuff
+
+
+	I'm not sure where to put this, but here's the timing requirements for the CPU to hit full speed:
+		GB CPU freq: 4.194304 MHz
+		Due CPU freq: 84,000,000 MHz
+		20.027 (rounded down to 20) Due CPU cycles per GB CPU cycle
+
+		4 cycle instructions must be completed within 80 cycles
+		
+		This is just for the CPU and doesn't take audio/ppu into consideration
+		IDK if full speed is possible
 */
 
 extern "C" {
